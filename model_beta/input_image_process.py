@@ -38,6 +38,4 @@ def import_image():
     else:
         print("Failed to load image!")
 
-# Call the import_image function
-import_image()
 
