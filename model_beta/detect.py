@@ -6,7 +6,6 @@ from ultralytics import YOLO
 
 
 
-
 def detect_model(link_detect_model, device = "cpu"):
 
     # Choose device
