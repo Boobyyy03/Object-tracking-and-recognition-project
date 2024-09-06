@@ -68,7 +68,7 @@ def visualize_recognition(frame, faces, target_img, matches, scores, box_color=(
         cv.rectangle(frame, (x, y), (x + w, y + h), box_color, 2)
 
         score_text = f'Score: {scores[i]:.2f}'
-        cv.putText(frame, score_text, (x, y - 10), cv.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)  # Red text
+        cv.putText(frame, score_text, (x, y - 10), cv.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2) 
 
     return frame
 
