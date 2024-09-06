@@ -5,19 +5,21 @@ import torch as pt
 from ultralytics import YOLO
 
 
+
+
 def detect_model(link_detect_model, device = "cpu"):
 
     # Choose device
     device = pt.device(device)
 
     # Load the YOLOv8 model
-    model = YOLO("/kaggle/input/amazing-tracking-yolov8-face/yolov8n-face.pt", task='track')
+    model = YOLO(link_detect_model, task='track')
     model.to(device=device)
 
     return model
 
-# Open the video file
-cap = cv2.VideoCapture(image_path)
+
+
 
 def detect(detect_model, frame, link_output_folder, count_video_frame, conf_threshold = 0.5):
 
@@ -38,7 +40,7 @@ def detect(detect_model, frame, link_output_folder, count_video_frame, conf_thre
 
         # Crop face and save in output folder
         image_face = frame[y1:y2, x1:x2]
-        cv2.imwrite(link_output_folder + "_" + str(id) + "_" + str(count_video_frame) + ".png", image_face)
+        cv2.imwrite(os.linkdir(link_output_folder, str(id) + "_" + str(count_video_frame) + ".png"), image_face)
 
         # Draw bounding boxes on frame
         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
