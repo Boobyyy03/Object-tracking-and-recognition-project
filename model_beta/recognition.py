@@ -91,4 +91,4 @@ if __name__ == '__main__':
     output_dir = 'output'
     target_img_path = 'img5.jpg'
 
-    process_images(input_dir, target_img_path, face_detector, face_recognizer, output_dir)
+    process_images(input_dir, target_img_path, face_detector, face_recognizer, output_dir, frame_bb)
