@@ -196,6 +196,33 @@ def import_image():
         print("Failed to load image!")
         return None
 
+
+# Tạo video mp4 từ các frame trong file
+def make_mp4(video_name, fps, detected_frame_dir, project_dir):
+
+    # Lấy hết đường dẫn ảnh trong file
+    list_img = list()
+    for i in os.listdir(detected_frame_dir):
+        list_img.append(i)
+    list_img.sort()
+
+    # Lấy các thông số và tạo chỗ đạt file
+    cv2_fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+
+    img = cv2.imread(detected_frame_dir + os.listdir(detected_frame_dir)[0])
+    size = list(img.shape)
+    del size[2]
+    size.reverse()
+
+    video = cv2.VideoWriter(os.path.join(project_dir, video_name + ".mp4"), cv2_fourcc, fps, size)
+
+    # Viết vào mp4
+    for i in list_img:
+        video.write(cv2.imread(detected_frame_dir + i))
+    video.release()
+
+
+
 # Hàm chính để tích hợp phát hiện và nhận diện
 if __name__ == '__main__':
     # Nhập ảnh mục tiêu
@@ -224,9 +251,14 @@ if __name__ == '__main__':
 
     # Định nghĩa các thư mục
     # Input_dir là đường dẫn đến thư mục chứa các hình ảnh đầu vào, tức là các khuôn mặt đã được phát hiện và cắt từ video hoặc nguồn hình ảnh khác.
-    input_dir = r'model_beta\input_folder'
 
-    output_dir = r'model_beta\output_folder'
+    project_dir = r'model_beta\\'
+
+    input_dir = r'model_beta\\input_folder'
+
+    output_dir = r'model_beta\\output_folder'
+
+    detected_frame_dir = r'model_beta\\detected_frame_folder'
 
     # Đảm bảo các thư mục đầu vào và đầu ra tồn tại
     if not os.path.exists(input_dir):
@@ -254,6 +286,21 @@ if __name__ == '__main__':
         # Thực hiện phát hiện trên khung hình
         detected_frame = detect(detect_model_instance, frame, input_dir, count_video_frame)
 
+        # Tạo tên cho hình ảnh tracking được lưu
+        name_frame = ""
+        for i in range(1,7):
+            if count_video_frame < 10**i:
+                for ii in range(6-i):
+                    name_frame = name_frame + "0"
+                break
+            else:
+                continue
+        name_frame = name_frame + str(count_video_frame)
+
+        # Lưu hình ảnh vào địa chỉ
+        cv2.imwrite(detected_frame_dir + name_frame + ".png", detected_frame)
+        count_video_frame += 1
+
         # Hiển thị khung hình đã phát hiện
         cv2.imshow('Detected Frame', detected_frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -264,3 +311,8 @@ if __name__ == '__main__':
 
     # Thực hiện quá trình nhận diện
     process_images(input_dir, target_img_path, face_detector, face_recognizer, output_dir)
+
+
+
+
+
