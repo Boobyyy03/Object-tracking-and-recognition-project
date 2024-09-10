@@ -50,19 +50,18 @@ def process_images(input_dir, target_img_path, model_face_detector, model_face_r
         print(f"Error: Could not load target face image from {target_img_path}")
         return
 
+    target_img_name = os.path.splitext(os.path.basename(target_img_path))[0]
+
     model_face_detector.setInputSize([target_img.shape[1], target_img.shape[0]])
     target_faces = model_face_detector.infer(target_img)
     if target_faces.shape[0] == 0:
         print("Error: No face detected in target image.")
         return
 
-    processed_count = 0  # Counter to keep track of processed images
-    max_images_to_process = 3  # Limit the number of images to process
+    processed_count_per_id = {}
+    max_images_to_process = 3
 
     for img_name in os.listdir(input_dir):
-        if processed_count >= max_images_to_process:
-            break  # Stop processing once 3 images have been processed
-
         img_path = os.path.join(input_dir, img_name)
         img = cv2.imread(img_path)
 
@@ -71,11 +70,17 @@ def process_images(input_dir, target_img_path, model_face_detector, model_face_r
             continue
 
         parts = img_name.split('_')
-        if len(parts) < 2:
+        if len(parts) != 2:
             print(f"Error: Invalid filename format for {img_name}. Skipping.")
             continue
         img_id = parts[0]
         frame_num = parts[1].split('.')[0]
+
+        if img_id not in processed_count_per_id:
+            processed_count_per_id[img_id] = 0
+
+        if processed_count_per_id[img_id] >= max_images_to_process:
+            continue
 
         print(f"Processing {img_name}...")
 
@@ -85,25 +90,31 @@ def process_images(input_dir, target_img_path, model_face_detector, model_face_r
         sufficient_landmarks_found = False
 
         for face in detected_faces:
-            if detect_face_landmarks(img, face):  # Check for sufficient landmarks
+            if detect_face_landmarks(img, face):
                 sufficient_landmarks_found = True
                 score, match = model_face_recognizer.match(target_img, target_faces[0][:-1], img, face[:-1])
 
-                img = visualize_recognition(img, detected_faces, target_img, [match], [score])
+                if match:
+                    output_subdir = os.path.join(output_dir, target_img_name)
+                else:
+                    output_subdir = os.path.join(output_dir, img_id)
 
-                output_subdir = os.path.join(output_dir, img_id)
                 if not os.path.exists(output_subdir):
                     os.makedirs(output_subdir)
 
+                img = visualize_recognition(img, detected_faces, target_img, [match], [score])
+
                 output_img_path = os.path.join(output_subdir, f"output_{img_name}")
                 cv2.imwrite(output_img_path, img)
-                processed_count += 1  # Increment the processed image count
-                break  # Only process the first face in the image
+
+                processed_count_per_id[img_id] += 1
+                break
 
         if not sufficient_landmarks_found:
             print(f"Skipping {img_name} due to insufficient landmarks.")
 
-    print(f"Processed {processed_count} images. Output saved to {output_dir}")
+    print(f"Processing complete. Output saved to {output_dir}")
+
 
 
 def detect_face_landmarks(img, face):
@@ -136,15 +147,17 @@ def detect_face_landmarks(img, face):
     return False
 
 
-def visualize_recognition(frame, faces, target_img, matches, scores, box_color=(0, 255, 0), text_color=(255, 255, 255)):
+def visualize_recognition(frame, faces, target_img, matches, scores, box_color=(0, 255, 0), text_color=(0, 0, 255)):
     for i, face in enumerate(faces):
         x, y, w, h = face[:4].astype(np.int32)
         box_color = (0, 255, 0) if matches[i] else (0, 0, 255)
         cv2.rectangle(frame, (x, y), (x + w, y + h), box_color, 2)
 
-        score_text = f'Score: {scores[i]:.2f}'
-        font_scale = 0.6
-        font_thickness = 2
+        score_text = f'{scores[i]:.2f}'
+
+        font_scale = h / 150.0
+        font_thickness = max(1, int(h / 50))
+
         text_size, _ = cv2.getTextSize(score_text, cv2.FONT_HERSHEY_SIMPLEX, font_scale, font_thickness)
         text_w, text_h = text_size
 
@@ -154,9 +167,10 @@ def visualize_recognition(frame, faces, target_img, matches, scores, box_color=(
         if text_y + text_h > y + h:
             text_y = y + h - 5
 
-        cv2.putText(frame, score_text, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), font_thickness)
+        cv2.putText(frame, score_text, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, font_scale, text_color, font_thickness)
 
     return frame
+
 
 
 # Hàm nhập ảnh mục tiêu
