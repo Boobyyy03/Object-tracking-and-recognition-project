@@ -1,7 +1,7 @@
 # lấy hình ảnh từ folder "input" so sánh với file target trả ra folder "output\(id)". Mỗi người nhận diện được để ở folder riêng.
 
 
-import cv2 as cv
+import cv2 
 import numpy as np
 import os
 from yunet import YuNet

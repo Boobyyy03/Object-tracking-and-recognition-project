@@ -66,7 +66,7 @@ if __name__ == '__main__':
         os.makedirs(output_dir)
 
     # Ví dụ: Mở webcam và thực hiện phát hiện
-    video_source = 0 # r"video_test\video1.mp4"  # 0 cho webcam mặc định, hoặc cung cấp đường dẫn tới tệp video
+    video_source = r"video_test\video.mp4"  # 0 cho webcam mặc định, hoặc cung cấp đường dẫn tới tệp video
     cap = cv2.VideoCapture(video_source)
 
     if not cap.isOpened():
