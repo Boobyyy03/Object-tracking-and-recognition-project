@@ -57,6 +57,6 @@ def detect_Frame(detect_model, frame, link_output_folder, link_detected_frame_fo
     name_frame = name_frame + str(count_video_frame) + ".png"
 
     # Lưu hình ảnh vào địa chỉ
-    cv2.imwrite(os.path.join(link_detected_frame_folder + name_frame), frame)
+    cv2.imwrite(os.path.join(link_detected_frame_folder , name_frame), frame)
 
     return frame
