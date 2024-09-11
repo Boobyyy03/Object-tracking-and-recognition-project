@@ -7,6 +7,9 @@ from tkinter import filedialog
 
 from yunet import YuNet
 from sface import SFace
+from detect import *
+from input_image_process import *
+from recognition import *
 
 
 
