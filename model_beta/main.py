@@ -50,7 +50,7 @@ class MainWindow(QWidget):
 
         # Layout bên trái - Hiển thị video
         self.video_label = QLabel("Video Stream")
-        self.video_label.setFixedSize(640, 480)
+        self.video_label.setFixedSize(1920, 1080)  # Default size
 
         left_layout = QVBoxLayout()
         left_layout.addWidget(self.video_label)
@@ -58,16 +58,29 @@ class MainWindow(QWidget):
         # Layout bên phải - Nhập ảnh và hiển thị 3 ảnh xuất ra
         right_layout = QVBoxLayout()
 
+        self.upload_label= QLabel("Ảnh mục tiêu")
+        self.upload_label.setStyleSheet("border:2px solid black")
+        self.upload_label.setFixedSize(200,200)
+
         # Button để nhập ảnh
         self.btn_upload = QPushButton("Chọn ảnh để xử lý")
         self.btn_upload.clicked.connect(self.upload_image)
 
         # Labels để hiển thị 3 ảnh xuất ra
         self.result_label_1 = QLabel("Ảnh kết quả 1")
+        self.result_label_1.setStyleSheet("border:2px solid black;")
+        self.result_label_1.setFixedSize(200,200)
+
         self.result_label_2 = QLabel("Ảnh kết quả 2")
+        self.result_label_2.setStyleSheet("border:2px solid black;")
+        self.result_label_2.setFixedSize(200, 200)
+
         self.result_label_3 = QLabel("Ảnh kết quả 3")
+        self.result_label_3.setStyleSheet("border:2px solid black;")
+        self.result_label_3.setFixedSize(200, 200)
 
         right_layout.addWidget(self.btn_upload)
+        right_layout.addWidget(self.upload_label)
         right_layout.addWidget(self.result_label_1)
         right_layout.addWidget(self.result_label_2)
         right_layout.addWidget(self.result_label_3)
@@ -79,11 +92,11 @@ class MainWindow(QWidget):
         # Đặt layout chính cho cửa sổ
         self.setLayout(main_layout)
 
-        # Khởi động camera để stream video
-        self.cap = cv2.VideoCapture(0)
+        # Khởi động video
+        self.cap = cv2.VideoCapture('video_test/video.mp4')
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_frame)
-        self.timer.start(30)  # Cập nhật mỗi 30ms
+        self.timer.start(30)
 
         self.target_img_path = None
         self.count_video_frame = 0
@@ -95,11 +108,14 @@ class MainWindow(QWidget):
 
         if file_name:
             self.target_img_path = file_name
-            pixmap = QPixmap(file_name)
-            self.result_label_1.setPixmap(pixmap.scaled(200, 200))
 
-            # Sau khi chọn ảnh, thực hiện nhận diện khuôn mặt trên ảnh đó
+            image = cv2.imread(file_name)
+
+            # Thực hiện recognize
             process_Images(self.input_dir, self.target_img_path, self.face_detector, self.face_recognizer, self.output_dir)
+
+            # Scale và hiện ảnh tải lên
+            self.display_scaled_image(self.upload_label, image)
 
             # Hiển thị kết quả nhận diện khuôn mặt (nếu có)
             result_image_1_path = os.path.join(self.output_dir, "result_image_1.jpg")
@@ -107,25 +123,95 @@ class MainWindow(QWidget):
             result_image_3_path = os.path.join(self.output_dir, "result_image_3.jpg")
 
             if os.path.exists(result_image_1_path):
-                self.result_label_1.setPixmap(QPixmap(result_image_1_path).scaled(200, 200))
+                result_image_1 = cv2.imread(result_image_1_path)
+                self.display_scaled_image(self.result_label_1, result_image_1)
             if os.path.exists(result_image_2_path):
-                self.result_label_2.setPixmap(QPixmap(result_image_2_path).scaled(200, 200))
+                result_image_2 = cv2.imread(result_image_2_path)
+                self.display_scaled_image(self.result_label_2, result_image_2)
             if os.path.exists(result_image_3_path):
-                self.result_label_3.setPixmap(QPixmap(result_image_3_path).scaled(200, 200))
+                result_image_3 = cv2.imread(result_image_3_path)
+                self.display_scaled_image(self.result_label_3, result_image_3)
+
+    def display_scaled_image(self, label, image):
+        """Scale the image to fit inside the QLabel and pad with black if necessary."""
+        height, width, channel = image.shape
+        layout_width, layout_height = label.width(), label.height()
+
+        # Tính tỷ lệ khung hình của image và layout
+        image_aspect_ratio = width / height
+        layout_aspect_ratio = layout_width / layout_height
+
+        if image_aspect_ratio > layout_aspect_ratio:
+            # Image rộng hơn so với layout
+            new_width = layout_width
+            new_height = int(new_width / image_aspect_ratio)
+        else:
+            # Image cao hơn hoặc cùng tỷ lệ với layout
+            new_height = layout_height
+            new_width = int(new_height * image_aspect_ratio)
+
+        # Resize image to new dimensions
+        resized_image = cv2.resize(image, (new_width, new_height))
+
+        # Create a black image of layout size
+        black_frame = np.zeros((layout_height, layout_width, 3), dtype=np.uint8)
+
+        # Calculate the position to place the resized image in the center of the black frame
+        x_offset = (layout_width - new_width) // 2
+        y_offset = (layout_height - new_height) // 2
+
+        # Place the resized image on the black frame
+        black_frame[y_offset:y_offset + new_height, x_offset:x_offset + new_width] = resized_image
+
+        # Convert the black_frame to QImage
+        frame_rgb = cv2.cvtColor(black_frame, cv2.COLOR_BGR2RGB)
+        step = 3 * layout_width
+        q_img = QImage(frame_rgb.data, layout_width, layout_height, step, QImage.Format_RGB888)
+        label.setPixmap(QPixmap.fromImage(q_img))
 
     def update_frame(self):
         # Cập nhật frame từ camera
         ret, frame = self.cap.read()
         if ret:
             # Phát hiện khuôn mặt trên video
-            detected_frame = detect_Frame(self.detect_model_instance, frame, self.input_dir, self.detected_frame_dir, self.count_video_frame)
+            detected_frame = detect_Frame(self.detect_model_instance, frame, self.input_dir, self.detected_frame_dir,
+                                          self.count_video_frame)
             self.count_video_frame += 1
 
             # Chuyển đổi frame OpenCV sang định dạng QImage
-            frame_rgb = cv2.cvtColor(detected_frame, cv2.COLOR_BGR2RGB)
-            height, width, channel = frame_rgb.shape
-            step = channel * width
-            q_img = QImage(frame_rgb.data, width, height, step, QImage.Format_RGB888)
+            height, width, channel = detected_frame.shape
+            layout_width, layout_height = self.video_label.width(), self.video_label.height()
+
+            # Tính tỷ lệ khung hình của video và layout
+            video_aspect_ratio = width / height
+            layout_aspect_ratio = layout_width / layout_height
+
+            if video_aspect_ratio > layout_aspect_ratio:
+                # Video rộng hơn so với layout
+                new_width = layout_width
+                new_height = int(new_width / video_aspect_ratio)
+            else:
+                # Video cao hơn hoặc cùng tỷ lệ với layout
+                new_height = layout_height
+                new_width = int(new_height * video_aspect_ratio)
+
+            # Resize video frame to new dimensions
+            resized_frame = cv2.resize(detected_frame, (new_width, new_height))
+
+            # Create a black image of layout size
+            black_frame = np.zeros((layout_height, layout_width, 3), dtype=np.uint8)
+
+            # Calculate the position to place the resized video in the center of the black frame
+            x_offset = (layout_width - new_width) // 2
+            y_offset = (layout_height - new_height) // 2
+
+            # Place the resized video on the black frame
+            black_frame[y_offset:y_offset + new_height, x_offset:x_offset + new_width] = resized_frame
+
+            # Convert the black_frame to QImage
+            frame_rgb = cv2.cvtColor(black_frame, cv2.COLOR_BGR2RGB)
+            step = 3 * layout_width
+            q_img = QImage(frame_rgb.data, layout_width, layout_height, step, QImage.Format_RGB888)
             self.video_label.setPixmap(QPixmap.fromImage(q_img))
 
     def closeEvent(self, event):
