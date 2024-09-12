@@ -51,7 +51,9 @@ class MainWindow(QWidget):
                                      backendId=cv2.dnn.DNN_BACKEND_OPENCV,
                                      targetId=cv2.dnn.DNN_TARGET_CPU)
 
-        self.detect_model_instance = detect_Model(self.detect_model_path, device="cpu")
+        self.detect_model_instance = list()
+        for i in range(2):
+            self.detect_model_instance.append(detect_Model(self.detect_model_path, device="cpu"))
 
         # Đảm bảo các thư mục đầu vào và đầu ra tồn tại
         if not os.path.exists(self.input_dir):
@@ -62,13 +64,13 @@ class MainWindow(QWidget):
         # Tạo layout chính
         main_layout = QHBoxLayout()
         
-        # Tạo layout lưới cho 4 video và thêm vào bên trái của giao diện
+        # Tạo layout lưới cho 2 video và thêm vào bên trái của giao diện
         left_layout = QVBoxLayout()
         grid_layout = QGridLayout()
 
-        # Khung cho 4 video
+        # Khung cho 2 video
         self.video_labels = []
-        for i in range(4):
+        for i in range(2):
             video_label = QLabel(f"Video {i+1}")
             video_label.setFixedSize(640, 360)  # Kích thước nhỏ hơn cho 4 video
             video_label.setStyleSheet("border:2px solid black;")  # Thêm viền để dễ phân biệt
@@ -77,8 +79,6 @@ class MainWindow(QWidget):
         # Đặt các khung video vào các góc của lưới
         grid_layout.addWidget(self.video_labels[0], 0, 0)  # Góc trên bên trái
         grid_layout.addWidget(self.video_labels[1], 0, 1)  # Góc trên bên phải
-        grid_layout.addWidget(self.video_labels[2], 1, 0)  # Góc dưới bên trái
-        grid_layout.addWidget(self.video_labels[3], 1, 1)  # Góc dưới bên phải
 
         # Đặt layout lưới vào layout bên trái
         left_layout.addLayout(grid_layout)
@@ -136,16 +136,28 @@ class MainWindow(QWidget):
         self.count_video_frame = [0] * 4
 
     def update_frames(self):
-        for i, cap in enumerate(self.video_caps):
-            ret, frame = cap.read()
+        ret_all = set()
+
+        # Loop through each video label and corresponding video capture
+        for i in range(2):
+            ret, frame = self.video_caps[i].read()
+
             if ret:
                 # Phát hiện khuôn mặt trên video
-                detected_frame = detect_Frame(self.detect_model_instance, frame, self.input_dir, self.detected_frame_dir,
-                                              self.count_video_frame[i])
+                detected_frame = detect_Frame(self.detect_model_instance[i], frame, self.input_dir,
+                                              self.detected_frame_dir, i, self.count_video_frame[i])
+
                 self.count_video_frame[i] += 1
 
-                # Cập nhật video
+                # Cập nhật video hiển thị
                 self.display_frame(self.video_labels[i], detected_frame)
+            else:
+                # If the video ends, stop updating that video
+                ret_all.add(i)
+
+        # If all videos have ended, stop the timer
+        if len(ret_all) == len(self.video_caps):
+            self.timer.stop()
 
     def display_frame(self, label, frame):
         """Display a frame in a QLabel."""
