@@ -1,0 +1,1 @@
+ffmpeg -i rtsp://internsys:Them1kynuanhe@nongdanonlnine.ddns.net:554/cam/realmonitor?channel=2^&subtype=0 -acodec copy -vcodec copy c:/abc.mp4
