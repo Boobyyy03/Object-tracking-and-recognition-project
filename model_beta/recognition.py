@@ -145,24 +145,3 @@ def visualize_Recognition(frame, faces, target_img, matches, scores, box_color=(
         cv2.putText(frame, score_text, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, font_scale, text_color, font_thickness)
 
     return frame
-
-
-'''if __name__ == '__main__':
-    face_detector = YuNet(modelPath='yunet.onnx',
-                          inputSize=[320, 320],
-                          confThreshold=0.8,
-                          nmsThreshold=0.3,
-                          topK=5000,
-                          backendId=cv.dnn.DNN_BACKEND_OPENCV,
-                          targetId=cv.dnn.DNN_TARGET_CPU)
-
-    face_recognizer = SFace(modelPath='reg.onnx',
-                            disType=0,
-                            backendId=cv.dnn.DNN_BACKEND_OPENCV,
-                            targetId=cv.dnn.DNN_TARGET_CPU)
-
-    input_dir = r'C:\Users\Administrator\Desktop\model_beta\model_beta\output_folder'
-    output_dir = r'C:\Users\Administrator\Desktop\model_beta\model_beta\output_folder'
-    target_img_path = r'C:\Users\Administrator\Desktop\model_beta\model_beta\input_image\long1_01_01.jpg'
-
-    process_images(input_dir, target_img_path, face_detector, face_recognizer, output_dir)'''
