@@ -12,19 +12,33 @@ from detect import *
 from input_image_process import *
 from recognition import *
 
+from PyQt5.QtWidgets import QApplication, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QFileDialog, QGridLayout
+from PyQt5.QtGui import QPixmap, QImage
+from PyQt5.QtCore import QTimer
+import cv2
+import os
+import numpy as np
+
+# Các import liên quan đến phát hiện và nhận diện khuôn mặt
+from yunet import YuNet
+from sface import SFace
+from detect import *
+from input_image_process import *
+from recognition import *
+
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
 
         # Định nghĩa các thư mục
-        self.input_dir = r'model_beta\\input_folder'
-        self.input_image_dir = r"model_beta\\input_image"
-        self.output_dir = r'model_beta\\output_folder'
-        self.detected_frame_dir = r'model_beta\\detected_frame_folder'
-        self.detect_model_path = r"model_train\\yolov8n-face.pt"
+        self.input_dir = r'model_beta/model_beta/input_folder'
+        self.input_image_dir = r"model_beta/model_beta/input_image"
+        self.output_dir = r'model_beta/model_beta/output_folder'
+        self.detected_frame_dir = r'model_beta/model_beta/detected_frame_folder'
+        self.detect_model_path = r"model_beta/model_train/yolov8n-face.pt"
 
         # Khởi tạo các mô hình nhận diện và phát hiện
-        self.face_detector = YuNet(modelPath=r'model_train\\yunet.onnx',
+        self.face_detector = YuNet(modelPath=r'model_beta/model_train/yunet.onnx',
                                    inputSize=[320, 320],
                                    confThreshold=0.8,
                                    nmsThreshold=0.3,
@@ -32,7 +46,7 @@ class MainWindow(QWidget):
                                    backendId=cv2.dnn.DNN_BACKEND_OPENCV,
                                    targetId=cv2.dnn.DNN_TARGET_CPU)
 
-        self.face_recognizer = SFace(modelPath=r'model_train\\reg.onnx',
+        self.face_recognizer = SFace(modelPath=r'model_beta/model_train/reg.onnx',
                                      disType=0,
                                      backendId=cv2.dnn.DNN_BACKEND_OPENCV,
                                      targetId=cv2.dnn.DNN_TARGET_CPU)
@@ -47,20 +61,34 @@ class MainWindow(QWidget):
 
         # Tạo layout chính
         main_layout = QHBoxLayout()
-
-        # Layout bên trái - Hiển thị video
-        self.video_label = QLabel("Video Stream")
-        self.video_label.setFixedSize(1920, 1080)  # Default size
-
+        
+        # Tạo layout lưới cho 4 video và thêm vào bên trái của giao diện
         left_layout = QVBoxLayout()
-        left_layout.addWidget(self.video_label)
+        grid_layout = QGridLayout()
+
+        # Khung cho 4 video
+        self.video_labels = []
+        for i in range(4):
+            video_label = QLabel(f"Video {i+1}")
+            video_label.setFixedSize(640, 360)  # Kích thước nhỏ hơn cho 4 video
+            video_label.setStyleSheet("border:2px solid black;")  # Thêm viền để dễ phân biệt
+            self.video_labels.append(video_label)
+        
+        # Đặt các khung video vào các góc của lưới
+        grid_layout.addWidget(self.video_labels[0], 0, 0)  # Góc trên bên trái
+        grid_layout.addWidget(self.video_labels[1], 0, 1)  # Góc trên bên phải
+        grid_layout.addWidget(self.video_labels[2], 1, 0)  # Góc dưới bên trái
+        grid_layout.addWidget(self.video_labels[3], 1, 1)  # Góc dưới bên phải
+
+        # Đặt layout lưới vào layout bên trái
+        left_layout.addLayout(grid_layout)
 
         # Layout bên phải - Nhập ảnh và hiển thị 3 ảnh xuất ra
         right_layout = QVBoxLayout()
 
-        self.upload_label= QLabel("Ảnh mục tiêu")
+        self.upload_label = QLabel("Ảnh mục tiêu")
         self.upload_label.setStyleSheet("border:2px solid black")
-        self.upload_label.setFixedSize(200,200)
+        self.upload_label.setFixedSize(200, 200)
 
         # Button để nhập ảnh
         self.btn_upload = QPushButton("Chọn ảnh để xử lý")
@@ -69,7 +97,7 @@ class MainWindow(QWidget):
         # Labels để hiển thị 3 ảnh xuất ra
         self.result_label_1 = QLabel("Ảnh kết quả 1")
         self.result_label_1.setStyleSheet("border:2px solid black;")
-        self.result_label_1.setFixedSize(200,200)
+        self.result_label_1.setFixedSize(200, 200)
 
         self.result_label_2 = QLabel("Ảnh kết quả 2")
         self.result_label_2.setStyleSheet("border:2px solid black;")
@@ -85,21 +113,76 @@ class MainWindow(QWidget):
         right_layout.addWidget(self.result_label_2)
         right_layout.addWidget(self.result_label_3)
 
-        # Thêm layout trái và phải vào layout chính
+        # Thêm layout bên trái và bên phải vào layout chính
         main_layout.addLayout(left_layout)
         main_layout.addLayout(right_layout)
 
         # Đặt layout chính cho cửa sổ
         self.setLayout(main_layout)
 
-        # Khởi động video
-        self.cap = cv2.VideoCapture('video_test/video.mp4')
+        # Khởi động các video
+        self.video_caps = [
+            cv2.VideoCapture('model_beta/video_test/video.mp4'),
+            cv2.VideoCapture('model_beta/video_test/video.mp4'),
+            cv2.VideoCapture('model_beta/video_test/video.mp4'),
+            cv2.VideoCapture('model_beta/video_test/video.mp4')
+        ]
+        
         self.timer = QTimer()
-        self.timer.timeout.connect(self.update_frame)
+        self.timer.timeout.connect(self.update_frames)
         self.timer.start(30)
 
         self.target_img_path = None
-        self.count_video_frame = 0
+        self.count_video_frame = [0] * 4
+
+    def update_frames(self):
+        for i, cap in enumerate(self.video_caps):
+            ret, frame = cap.read()
+            if ret:
+                # Phát hiện khuôn mặt trên video
+                detected_frame = detect_Frame(self.detect_model_instance, frame, self.input_dir, self.detected_frame_dir,
+                                              self.count_video_frame[i])
+                self.count_video_frame[i] += 1
+
+                # Cập nhật video
+                self.display_frame(self.video_labels[i], detected_frame)
+
+    def display_frame(self, label, frame):
+        """Display a frame in a QLabel."""
+        height, width, channel = frame.shape
+        layout_width, layout_height = label.width(), label.height()
+
+        # Tính tỷ lệ khung hình của frame và layout
+        frame_aspect_ratio = width / height
+        layout_aspect_ratio = layout_width / layout_height
+
+        if frame_aspect_ratio > layout_aspect_ratio:
+            # Video rộng hơn so với layout
+            new_width = layout_width
+            new_height = int(new_width / frame_aspect_ratio)
+        else:
+            # Video cao hơn hoặc cùng tỷ lệ với layout
+            new_height = layout_height
+            new_width = int(new_height * frame_aspect_ratio)
+
+        # Resize frame to new dimensions
+        resized_frame = cv2.resize(frame, (new_width, new_height))
+
+        # Create a black image of layout size
+        black_frame = np.zeros((layout_height, layout_width, 3), dtype=np.uint8)
+
+        # Calculate the position to place the resized video in the center of the black frame
+        x_offset = (layout_width - new_width) // 2
+        y_offset = (layout_height - new_height) // 2
+
+        # Place the resized video on the black frame
+        black_frame[y_offset:y_offset + new_height, x_offset:x_offset + new_width] = resized_frame
+
+        # Convert the black_frame to QImage
+        frame_rgb = cv2.cvtColor(black_frame, cv2.COLOR_BGR2RGB)
+        step = 3 * layout_width
+        q_img = QImage(frame_rgb.data, layout_width, layout_height, step, QImage.Format_RGB888)
+        label.setPixmap(QPixmap.fromImage(q_img))
 
     def upload_image(self):
         # Chọn ảnh từ máy tính
@@ -169,56 +252,11 @@ class MainWindow(QWidget):
         q_img = QImage(frame_rgb.data, layout_width, layout_height, step, QImage.Format_RGB888)
         label.setPixmap(QPixmap.fromImage(q_img))
 
-    def update_frame(self):
-        # Cập nhật frame từ camera
-        ret, frame = self.cap.read()
-        if ret:
-            # Phát hiện khuôn mặt trên video
-            detected_frame = detect_Frame(self.detect_model_instance, frame, self.input_dir, self.detected_frame_dir,
-                                          self.count_video_frame)
-            self.count_video_frame += 1
-
-            # Chuyển đổi frame OpenCV sang định dạng QImage
-            height, width, channel = detected_frame.shape
-            layout_width, layout_height = self.video_label.width(), self.video_label.height()
-
-            # Tính tỷ lệ khung hình của video và layout
-            video_aspect_ratio = width / height
-            layout_aspect_ratio = layout_width / layout_height
-
-            if video_aspect_ratio > layout_aspect_ratio:
-                # Video rộng hơn so với layout
-                new_width = layout_width
-                new_height = int(new_width / video_aspect_ratio)
-            else:
-                # Video cao hơn hoặc cùng tỷ lệ với layout
-                new_height = layout_height
-                new_width = int(new_height * video_aspect_ratio)
-
-            # Resize video frame to new dimensions
-            resized_frame = cv2.resize(detected_frame, (new_width, new_height))
-
-            # Create a black image of layout size
-            black_frame = np.zeros((layout_height, layout_width, 3), dtype=np.uint8)
-
-            # Calculate the position to place the resized video in the center of the black frame
-            x_offset = (layout_width - new_width) // 2
-            y_offset = (layout_height - new_height) // 2
-
-            # Place the resized video on the black frame
-            black_frame[y_offset:y_offset + new_height, x_offset:x_offset + new_width] = resized_frame
-
-            # Convert the black_frame to QImage
-            frame_rgb = cv2.cvtColor(black_frame, cv2.COLOR_BGR2RGB)
-            step = 3 * layout_width
-            q_img = QImage(frame_rgb.data, layout_width, layout_height, step, QImage.Format_RGB888)
-            self.video_label.setPixmap(QPixmap.fromImage(q_img))
-
     def closeEvent(self, event):
-        # Giải phóng camera khi đóng cửa sổ
-        self.cap.release()
+        # Giải phóng các video khi đóng cửa sổ
+        for cap in self.video_caps:
+            cap.release()
         cv2.destroyAllWindows()
-
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
