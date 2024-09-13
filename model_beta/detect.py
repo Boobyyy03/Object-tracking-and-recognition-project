@@ -18,7 +18,7 @@ def detect_Model(link_detect_model, device = "cpu"):
     return model
 
 
-def detect_Frame(detect_model, frame, link_output_folder, link_detected_frame_folder, count_video_frame, conf_threshold = 0.5):
+def detect_Frame(detect_model, frame, link_output_folder, link_detected_frame_folder, camera, count_video_frame, conf_threshold = 0.5):
 
     # Run YOLOv8 tracking on the frame, persisting tracks between frames
     results = detect_model.track(frame, persist=True)
@@ -37,7 +37,7 @@ def detect_Frame(detect_model, frame, link_output_folder, link_detected_frame_fo
 
         # Crop face and save in output folder
         image_face = frame[y1:y2, x1:x2]
-        cv2.imwrite(os.path.join(link_output_folder, f"{id}_{count_video_frame}.jpg"), image_face)
+        cv2.imwrite(os.path.join(link_output_folder, f"{camera}_{id}_{count_video_frame}.jpg"), image_face)
 
         # Draw bounding boxes on frame
         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
@@ -54,7 +54,7 @@ def detect_Frame(detect_model, frame, link_output_folder, link_detected_frame_fo
             break
         else:
             continue
-    name_frame = name_frame + str(count_video_frame) + ".png"
+    name_frame = str(camera) + "_" + name_frame + str(count_video_frame) + ".png"
 
     # Lưu hình ảnh vào địa chỉ
     cv2.imwrite(os.path.join(link_detected_frame_folder , name_frame), frame)
