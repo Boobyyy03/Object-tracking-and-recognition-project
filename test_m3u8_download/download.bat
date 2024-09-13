@@ -1,1 +1,1 @@
-ffmpeg -i rtsp://internsys:Them1kynuanhe@nongdanonlnine.ddns.net:554/cam/realmonitor?channel=2^&subtype=0  -c copy -map 0 -f segment -strftime 1 -segment_time 60 -segment_format mp4 "%Y%m%d-%H%M.mp4"
+ffmpeg -i rtsp://internsys:Them1kynuanhe@nongdanonlnine.ddns.net:554/cam/realmonitor?channel=2^&subtype=0 -c copy -map 0 -f segment -segment_time 10 -segment_format mp4 -segment_list playlist.m3u8 -segment_list_flags +live -segment_list_size 10 -segment_list_type m3u8 output%03d.mp4
