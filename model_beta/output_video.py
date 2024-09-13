@@ -13,7 +13,7 @@ def make_Mp4(video_name, fps, detected_frame_dir, project_dir):
     # Lấy các thông số và tạo chỗ đạt file
     cv2_fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 
-    img = cv2.imread(detected_frame_dir + os.listdir(detected_frame_dir)[0])
+    img = cv2.imread(detected_frame_dir+"\\" + os.listdir(detected_frame_dir)[0])
     size = list(img.shape)
     del size[2]
     size.reverse()
@@ -22,5 +22,5 @@ def make_Mp4(video_name, fps, detected_frame_dir, project_dir):
 
     # Viết vào mp4
     for i in list_img:
-        video.write(cv2.imread(detected_frame_dir + i))
+        video.write(cv2.imread(detected_frame_dir+"\\" + i))
     video.release()

@@ -11,8 +11,9 @@ from sface import SFace
 from detect import *
 from input_image_process import *
 from recognition import *
-
-from PyQt5.QtWidgets import QApplication, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QFileDialog, QGridLayout
+import shutil
+from PyQt5.QtWidgets import QApplication, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QFileDialog, \
+    QGridLayout
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import QTimer
 import cv2
@@ -25,20 +26,22 @@ from sface import SFace
 from detect import *
 from input_image_process import *
 from recognition import *
+from output_video import *
+
 
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
 
         # Định nghĩa các thư mục
-        self.input_dir = r'model_beta/model_beta/input_folder'
-        self.input_image_dir = r"model_beta/model_beta/input_image"
-        self.output_dir = r'model_beta/model_beta/output_folder'
-        self.detected_frame_dir = r'model_beta/model_beta/detected_frame_folder'
-        self.detect_model_path = r"model_beta/model_train/yolov8n-face.pt"
+        self.input_dir = r'model_beta/input_folder'
+        self.input_image_dir = r"model_beta/input_image"
+        self.output_dir = r'model_beta/output_folder'
+        self.detected_frame_dir = r'model_beta/detected_frame_folder'
+        self.detect_model_path = r"model_train/yolov8n-face.pt"
 
         # Khởi tạo các mô hình nhận diện và phát hiện
-        self.face_detector = YuNet(modelPath=r'model_beta/model_train/yunet.onnx',
+        self.face_detector = YuNet(modelPath=r'model_train/yunet.onnx',
                                    inputSize=[320, 320],
                                    confThreshold=0.8,
                                    nmsThreshold=0.3,
@@ -46,7 +49,7 @@ class MainWindow(QWidget):
                                    backendId=cv2.dnn.DNN_BACKEND_OPENCV,
                                    targetId=cv2.dnn.DNN_TARGET_CPU)
 
-        self.face_recognizer = SFace(modelPath=r'model_beta/model_train/reg.onnx',
+        self.face_recognizer = SFace(modelPath=r'model_train/reg.onnx',
                                      disType=0,
                                      backendId=cv2.dnn.DNN_BACKEND_OPENCV,
                                      targetId=cv2.dnn.DNN_TARGET_CPU)
@@ -63,19 +66,19 @@ class MainWindow(QWidget):
 
         # Tạo layout chính
         main_layout = QHBoxLayout()
-        
-        # Tạo layout lưới cho 2 video và thêm vào bên trái của giao diện
+
+        # Tạo layout lưới cho 4 video và thêm vào bên trái của giao diện
         left_layout = QVBoxLayout()
         grid_layout = QGridLayout()
 
         # Khung cho 2 video
         self.video_labels = []
         for i in range(2):
-            video_label = QLabel(f"Video {i+1}")
-            video_label.setFixedSize(640, 360)  # Kích thước nhỏ hơn cho 4 video
+            video_label = QLabel(f"Video {i + 1}")
+            video_label.setFixedSize(640, 480)  # Kích thước nhỏ hơn cho 4 video
             video_label.setStyleSheet("border:2px solid black;")  # Thêm viền để dễ phân biệt
             self.video_labels.append(video_label)
-        
+
         # Đặt các khung video vào các góc của lưới
         grid_layout.addWidget(self.video_labels[0], 0, 0)  # Góc trên bên trái
         grid_layout.addWidget(self.video_labels[1], 0, 1)  # Góc trên bên phải
@@ -121,19 +124,17 @@ class MainWindow(QWidget):
         self.setLayout(main_layout)
 
         # Khởi động các video
-        self.video_caps = [
-            cv2.VideoCapture('model_beta/video_test/video.mp4'),
-            cv2.VideoCapture('model_beta/video_test/video.mp4'),
-            cv2.VideoCapture('model_beta/video_test/video.mp4'),
-            cv2.VideoCapture('model_beta/video_test/video.mp4')
-        ]
-        
+        self.video_caps = {
+            0:cv2.VideoCapture('video_test/vi2.mp4'),
+            1:cv2.VideoCapture('video_test/video.mp4')
+        }
+
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_frames)
         self.timer.start(30)
 
         self.target_img_path = None
-        self.count_video_frame = [0] * 4
+        self.count_video_frame = [0] * 2
 
     def update_frames(self):
         ret_all = set()
@@ -199,7 +200,8 @@ class MainWindow(QWidget):
     def upload_image(self):
         # Chọn ảnh từ máy tính
         options = QFileDialog.Options()
-        file_name, _ = QFileDialog.getOpenFileName(self, "Chọn ảnh", "", "Image Files (*.png *.jpg *.jpeg *.bmp)", options=options)
+        file_name, _ = QFileDialog.getOpenFileName(self, "Chọn ảnh", "", "Image Files (*.png *.jpg *.jpeg *.bmp)",
+                                                   options=options)
 
         if file_name:
             self.target_img_path = file_name
@@ -207,7 +209,8 @@ class MainWindow(QWidget):
             image = cv2.imread(file_name)
 
             # Thực hiện recognize
-            process_Images(self.input_dir, self.target_img_path, self.face_detector, self.face_recognizer, self.output_dir)
+            process_Images(self.input_dir, self.target_img_path, self.face_detector, self.face_recognizer,
+                           self.output_dir)
 
             # Scale và hiện ảnh tải lên
             self.display_scaled_image(self.upload_label, image)
@@ -270,11 +273,10 @@ class MainWindow(QWidget):
             cap.release()
         cv2.destroyAllWindows()
 
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = MainWindow()
     window.setWindowTitle("Giao diện xử lý ảnh và video")
     window.show()
     sys.exit(app.exec_())
-    for i in range(2):
-        output_video(str(i), 24, 'model_beta/model_beta/detected_frame_folder/' + str(i), "model_beta/model_beta/")
