@@ -6,8 +6,7 @@ from ultralytics import YOLO
 
 
 
-def detect_Model(link_detect_model, device = "cpu"):
-
+def detect_Model(link_detect_model, device="cpu"):
     # Choose device
     device = pt.device(device)
 
@@ -18,14 +17,14 @@ def detect_Model(link_detect_model, device = "cpu"):
     return model
 
 
-def detect_Frame(detect_model, frame, link_output_folder, link_detected_frame_folder, camera, count_video_frame, conf_threshold = 0.5):
-
+def detect_Frame(detect_model, frame, link_output_folder, link_detected_frame_folder, camera, count_video_frame,
+                 conf_threshold=0.5):
     # Run YOLOv8 tracking on the frame, persisting tracks between frames
     results = detect_model.track(frame, persist=True)
-    
+
     # Take bounding boxes and infomation
     for detect_object in results[0].boxes:
-        id, co, bb = detect_object.id, detect_object.conf, detect_object.data[0,:4]
+        id, co, bb = detect_object.id, detect_object.conf, detect_object.data[0, :4]
         x1, y1, x2, y2 = map(int, bb)
         try:
             id = int(id)
