@@ -276,3 +276,5 @@ if __name__ == "__main__":
     window.setWindowTitle("Giao diện xử lý ảnh và video")
     window.show()
     sys.exit(app.exec_())
+    for i in range(2):
+        output_video(str(i), 24, 'model_beta/model_beta/detected_frame_folder/' + str(i), "model_beta/model_beta/")
