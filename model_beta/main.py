@@ -39,6 +39,9 @@ class MainWindow(QWidget):
         self.output_dir = r'model_beta/output_folder'
         self.detected_frame_dir = r'model_beta/detected_frame_folder'
         self.detect_model_path = r"model_train/yolov8n-face.pt"
+        self.number_camera = 2
+
+        self.current_camera = 0
 
         # Khởi tạo các mô hình nhận diện và phát hiện
         self.face_detector = YuNet(modelPath=r'model_train/yunet.onnx',
@@ -55,7 +58,7 @@ class MainWindow(QWidget):
                                      targetId=cv2.dnn.DNN_TARGET_CPU)
 
         self.detect_model_instance = list()
-        for i in range(2):
+        for i in range(self.number_camera):
             self.detect_model_instance.append(detect_Model(self.detect_model_path, device="cpu"))
 
         # Đảm bảo các thư mục đầu vào và đầu ra tồn tại
@@ -73,7 +76,7 @@ class MainWindow(QWidget):
 
         # Khung cho 2 video
         self.video_labels = []
-        for i in range(2):
+        for i in range(self.number_camera):
             video_label = QLabel(f"Video {i + 1}")
             video_label.setFixedSize(640, 480)  # Kích thước nhỏ hơn cho 4 video
             video_label.setStyleSheet("border:2px solid black;")  # Thêm viền để dễ phân biệt
@@ -83,8 +86,13 @@ class MainWindow(QWidget):
         grid_layout.addWidget(self.video_labels[0], 0, 0)  # Góc trên bên trái
         grid_layout.addWidget(self.video_labels[1], 0, 1)  # Góc trên bên phải
 
+
+        self.camera_box = QComboBox()
+        self.camera_box.addItems([i for i in range(self.number_camera)])
+
         # Đặt layout lưới vào layout bên trái
         left_layout.addLayout(grid_layout)
+        left_layout.addLayout(self.camera_box)
 
         # Layout bên phải - Nhập ảnh và hiển thị 3 ảnh xuất ra
         right_layout = QVBoxLayout()
@@ -133,8 +141,15 @@ class MainWindow(QWidget):
         self.timer.timeout.connect(self.update_frames)
         self.timer.start(30)
 
+        self.camera_box.activated.connect(self.change_camera)
+
         self.target_img_path = None
         self.count_video_frame = [0] * 2
+
+
+    def change_camera(self, index):
+        self.current_camera = index
+
 
     def update_frames(self):
         ret_all = set()
@@ -143,7 +158,7 @@ class MainWindow(QWidget):
         for i in range(2):
             ret, frame = self.video_caps[i].read()
 
-            if ret:
+            if ret and (self.current_camera == i):
                 # Phát hiện khuôn mặt trên video
                 detected_frame = detect_Frame(self.detect_model_instance[i], frame, self.input_dir,
                                               self.detected_frame_dir, i, self.count_video_frame[i])
