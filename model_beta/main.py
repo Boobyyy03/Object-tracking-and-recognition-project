@@ -69,27 +69,29 @@ class MainWindow(QWidget):
         grid_layout = QGridLayout()
 
         # Khung cho 2 video
-        self.video_labels = []
+        '''self.video_labels = []
         for i in range(self.number_camera):
             video_label = QLabel(f"Video {i + 1}")
             video_label.setFixedSize(640, 480)  # Kích thước nhỏ hơn cho 4 video
             video_label.setStyleSheet("border:2px solid black;")  # Thêm viền để dễ phân biệt
-            self.video_labels.append(video_label)
+            self.video_labels.append(video_label)'''
+
+        self.video_label = QLabel(f"Video")
+        self.video_label.setFixedSize(1280, 960)  # Kích thước nhỏ hơn cho 4 video
+        self.video_label.setStyleSheet("border:2px solid black;")
 
         self.camera_box = QComboBox()
         self.camera_box.addItems([str(i) for i in range(self.number_camera)])
 
         # Đặt các khung video vào các góc của lưới
-        grid_layout.addWidget(self.video_labels[0], 0, 0)  # Góc trên bên trái
-        grid_layout.addWidget(self.video_labels[1], 0, 1)
+        # grid_layout.addWidget(self.video_labels[0], 0, 0)  # Góc trên bên trái
+        # grid_layout.addWidget(self.video_labels[1], 0, 1)
         # Góc trên bên phải
-
-
 
 
         # Đặt layout lưới vào layout bên trái
         left_layout.addWidget(self.camera_box)
-        left_layout.addLayout(grid_layout)
+        left_layout.addWidget(self.video_label)
 
         # Layout bên phải - Nhập ảnh và hiển thị 3 ảnh xuất ra
         right_layout = QVBoxLayout()
@@ -149,7 +151,6 @@ class MainWindow(QWidget):
 
         self.target_img_path = None
         self.count_video_frame = [0] * 2
-        
 
 
     def change_camera(self, index):
@@ -173,7 +174,7 @@ class MainWindow(QWidget):
 
                 # Cập nhật video hiển thị
                 if self.current_camera == i:
-                    self.display_frame(self.video_labels[i], detected_frame)
+                    self.display_frame(self.video_label, detected_frame)
             else:
                 # If the video ends, stop updating that video
                 ret_all.add(i)
