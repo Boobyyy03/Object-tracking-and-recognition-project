@@ -7,8 +7,7 @@ from detect import *
 from input_image_process import *
 from recognition import *
 import shutil
-from PyQt5.QtWidgets import QApplication, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QFileDialog, \
-    QGridLayout, QComboBox
+from PyQt5.QtWidgets import QApplication, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QFileDialog, QGridLayout, QComboBox
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import QTimer
 import cv2
