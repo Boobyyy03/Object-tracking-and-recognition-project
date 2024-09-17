@@ -67,27 +67,13 @@ class MainWindow(QWidget):
         left_layout = QVBoxLayout()
         grid_layout = QGridLayout()
 
-        # Khung cho 2 video
-        '''self.video_labels = []
-        for i in range(self.number_camera):
-            video_label = QLabel(f"Video {i + 1}")
-            video_label.setFixedSize(640, 480)  # Kích thước nhỏ hơn cho 4 video
-            video_label.setStyleSheet("border:2px solid black;")  # Thêm viền để dễ phân biệt
-            self.video_labels.append(video_label)'''
-
         self.video_label = QLabel(f"Video")
         self.video_label.setFixedSize(1280, 960)  # Kích thước nhỏ hơn cho 4 video
         self.video_label.setStyleSheet("border:2px solid black;")
 
         self.camera_box = QComboBox()
         self.camera_box.addItems([str(i) for i in range(self.number_camera)])
-
-        # Đặt các khung video vào các góc của lưới
-        # grid_layout.addWidget(self.video_labels[0], 0, 0)  # Góc trên bên trái
-        # grid_layout.addWidget(self.video_labels[1], 0, 1)
-        # Góc trên bên phải
-
-
+        
         # Đặt layout lưới vào layout bên trái
         left_layout.addWidget(self.camera_box)
         left_layout.addWidget(self.video_label)
