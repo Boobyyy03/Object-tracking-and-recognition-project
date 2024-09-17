@@ -149,6 +149,7 @@ class MainWindow(QWidget):
 
         self.target_img_path = None
         self.count_video_frame = [0] * 2
+        
 
 
     def change_camera(self, index):
