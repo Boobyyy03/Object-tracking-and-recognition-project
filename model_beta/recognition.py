@@ -1,15 +1,12 @@
 # lấy hình ảnh từ folder "input" so sánh với file target trả ra folder "output\(id)". Mỗi người nhận diện được để ở folder riêng.
 
 
-import cv2
+import cv2 
 import numpy as np
 import os
 from yunet import YuNet
 from sface import SFace
 import mediapipe as mp
-
-import shutil
-
 import shutil
 
 def process_Images(input_dir, target_img_path, model_face_detector, model_face_recognizer, output_dir):

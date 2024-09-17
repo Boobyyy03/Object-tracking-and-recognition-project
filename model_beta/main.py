@@ -1,9 +1,4 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QFileDialog
-from PyQt5.QtGui import QPixmap, QImage
-from PyQt5.QtCore import QTimer
-import cv2
-import os
 
 # Các import liên quan đến phát hiện và nhận diện khuôn mặt
 from yunet import YuNet
@@ -13,7 +8,7 @@ from input_image_process import *
 from recognition import *
 import shutil
 from PyQt5.QtWidgets import QApplication, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QFileDialog, \
-    QGridLayout
+    QGridLayout, QComboBox
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import QTimer
 import cv2
@@ -26,7 +21,6 @@ from sface import SFace
 from detect import *
 from input_image_process import *
 from recognition import *
-from output_video import *
 
 
 class MainWindow(QWidget):
@@ -39,6 +33,9 @@ class MainWindow(QWidget):
         self.output_dir = r'model_beta/output_folder'
         self.detected_frame_dir = r'model_beta/detected_frame_folder'
         self.detect_model_path = r"model_train/yolov8n-face.pt"
+        self.number_camera = 2
+
+        self.current_camera = 0
 
         # Khởi tạo các mô hình nhận diện và phát hiện
         self.face_detector = YuNet(modelPath=r'model_train/yunet.onnx',
@@ -55,7 +52,7 @@ class MainWindow(QWidget):
                                      targetId=cv2.dnn.DNN_TARGET_CPU)
 
         self.detect_model_instance = list()
-        for i in range(2):
+        for i in range(self.number_camera):
             self.detect_model_instance.append(detect_Model(self.detect_model_path, device="cpu"))
 
         # Đảm bảo các thư mục đầu vào và đầu ra tồn tại
@@ -73,17 +70,25 @@ class MainWindow(QWidget):
 
         # Khung cho 2 video
         self.video_labels = []
-        for i in range(2):
+        for i in range(self.number_camera):
             video_label = QLabel(f"Video {i + 1}")
             video_label.setFixedSize(640, 480)  # Kích thước nhỏ hơn cho 4 video
             video_label.setStyleSheet("border:2px solid black;")  # Thêm viền để dễ phân biệt
             self.video_labels.append(video_label)
 
+        self.camera_box = QComboBox()
+        self.camera_box.addItems([str(i) for i in range(self.number_camera)])
+
         # Đặt các khung video vào các góc của lưới
         grid_layout.addWidget(self.video_labels[0], 0, 0)  # Góc trên bên trái
-        grid_layout.addWidget(self.video_labels[1], 0, 1)  # Góc trên bên phải
+        grid_layout.addWidget(self.video_labels[1], 0, 1)
+        # Góc trên bên phải
+
+
+
 
         # Đặt layout lưới vào layout bên trái
+        left_layout.addWidget(self.camera_box)
         left_layout.addLayout(grid_layout)
 
         # Layout bên phải - Nhập ảnh và hiển thị 3 ảnh xuất ra
@@ -96,6 +101,10 @@ class MainWindow(QWidget):
         # Button để nhập ảnh
         self.btn_upload = QPushButton("Chọn ảnh để xử lý")
         self.btn_upload.clicked.connect(self.upload_image)
+
+        #button d
+        self.btn_mp4 = QPushButton("Xuất file file mp4")
+        self.btn_mp4.clicked.connect(self.make_Mp4)
 
         # Labels để hiển thị 3 ảnh xuất ra
         self.result_label_1 = QLabel("Ảnh kết quả 1")
@@ -116,6 +125,9 @@ class MainWindow(QWidget):
         right_layout.addWidget(self.result_label_2)
         right_layout.addWidget(self.result_label_3)
 
+
+        right_layout.addWidget(self.btn_mp4)
+
         # Thêm layout bên trái và bên phải vào layout chính
         main_layout.addLayout(left_layout)
         main_layout.addLayout(right_layout)
@@ -133,8 +145,16 @@ class MainWindow(QWidget):
         self.timer.timeout.connect(self.update_frames)
         self.timer.start(30)
 
+        self.camera_box.activated.connect(self.change_camera)
+
         self.target_img_path = None
         self.count_video_frame = [0] * 2
+
+
+    def change_camera(self, index):
+        self.current_camera = int(index)
+        print(index)
+
 
     def update_frames(self):
         ret_all = set()
@@ -151,7 +171,8 @@ class MainWindow(QWidget):
                 self.count_video_frame[i] += 1
 
                 # Cập nhật video hiển thị
-                self.display_frame(self.video_labels[i], detected_frame)
+                if self.current_camera == i:
+                    self.display_frame(self.video_labels[i], detected_frame)
             else:
                 # If the video ends, stop updating that video
                 ret_all.add(i)
@@ -215,20 +236,25 @@ class MainWindow(QWidget):
             # Scale và hiện ảnh tải lên
             self.display_scaled_image(self.upload_label, image)
 
-            # Hiển thị kết quả nhận diện khuôn mặt (nếu có)
-            result_image_1_path = os.path.join(self.output_dir, "result_image_1.jpg")
-            result_image_2_path = os.path.join(self.output_dir, "result_image_2.jpg")
-            result_image_3_path = os.path.join(self.output_dir, "result_image_3.jpg")
+            # Lấy tên file của input_image hoặc target_img_path để khớp với folder trong cam folder
+            input_image_name = os.path.basename(self.target_img_path).split('.')[
+                0]  # Ex: "target_img_path.jpg" -> "target_img_path"
+            print(input_image_name)
 
-            if os.path.exists(result_image_1_path):
-                result_image_1 = cv2.imread(result_image_1_path)
-                self.display_scaled_image(self.result_label_1, result_image_1)
-            if os.path.exists(result_image_2_path):
-                result_image_2 = cv2.imread(result_image_2_path)
-                self.display_scaled_image(self.result_label_2, result_image_2)
-            if os.path.exists(result_image_3_path):
-                result_image_3 = cv2.imread(result_image_3_path)
-                self.display_scaled_image(self.result_label_3, result_image_3)
+            # Iterate through each camera folder in output_folder
+            for cam_id in range(self.number_camera):
+                cam_folder = os.path.join(self.output_dir, f"{cam_id}")
+
+                # Check if a folder with the input image name exists inside the camera folder
+                img_folder = os.path.join(cam_folder, input_image_name)
+                if os.path.exists(img_folder):
+                    # Load images from the folder
+                    result_images = sorted([os.path.join(img_folder, img) for img in os.listdir(img_folder)
+                                            if img.endswith(('.jpg', '.png', '.jpeg', '.bmp'))])
+
+                    result_image_1 = cv2.imread(result_images[0])
+                    self.display_scaled_image(self.result_label_1, result_image_1)
+
 
     def display_scaled_image(self, label, image):
         """Scale the image to fit inside the QLabel and pad with black if necessary."""
@@ -273,6 +299,40 @@ class MainWindow(QWidget):
             cap.release()
         cv2.destroyAllWindows()
 
+
+    def make_Mp4(self):
+        fps = 24
+        try:
+            # Lấy hết đường dẫn ảnh trong file
+            for i in range(self.number_camera):
+                detected_frame_dir = os.path.join(self.detected_frame_dir, str(i))
+                list_img = list()
+                for ii in os.listdir(detected_frame_dir):
+                    list_img.append(ii)
+                list_img.sort()
+                print(i)
+
+                # Lấy các thông số và tạo chỗ đạt file
+                cv2_fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+
+                img = cv2.imread(os.path.join(detected_frame_dir, os.listdir(detected_frame_dir)[0]))
+                print(i)
+
+                size = list(img.shape)
+                del size[2]
+                size.reverse()
+                print(i)
+
+                video = cv2.VideoWriter(os.path.join("model_beta", str(i) + ".mp4"), cv2_fourcc, fps, size)
+                print(i)
+
+                # Viết vào mp4
+                for ii in list_img:
+                    video.write(cv2.imread(os.path.join(detected_frame_dir, ii)))
+                video.release()
+                print(i)
+        except:
+            print("chua co anh")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
