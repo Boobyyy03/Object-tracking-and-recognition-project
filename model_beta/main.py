@@ -146,7 +146,7 @@ class MainWindow(QWidget):
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_frames)
-        self.timer.start(1000)
+        self.timer.start(33)
 
         self.camera_box.activated.connect(self.change_camera)
 
