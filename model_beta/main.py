@@ -1,5 +1,7 @@
 import sys
-
+import re
+from PyQt5.QtCore import QUrl, Qt
+from PyQt5.QtGui import QDesktopServices
 # Các import liên quan đến phát hiện và nhận diện khuôn mặt
 from yunet import YuNet
 from sface import SFace
@@ -7,13 +9,14 @@ from detect import *
 from input_image_process import *
 from recognition import *
 import shutil
-from PyQt5.QtWidgets import QApplication, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QFileDialog, QGridLayout, QComboBox
+from PyQt5.QtWidgets import QApplication, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QFileDialog, \
+    QGridLayout, QComboBox
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import QTimer
 import cv2
 import os
 import numpy as np
-import re
+
 # Các import liên quan đến phát hiện và nhận diện khuôn mặt
 from yunet import YuNet
 from sface import SFace
@@ -27,17 +30,17 @@ class MainWindow(QWidget):
         super().__init__()
 
         # Định nghĩa các thư mục
-        self.input_dir = r'model_beta/model_beta/input_folder'
-        self.input_image_dir = r"model_beta/model_beta/input_image"
-        self.output_dir = r'model_beta/model_beta/output_folder'
-        self.detected_frame_dir = r'model_beta/model_beta/detected_frame_folder'
-        self.detect_model_path = r"model_beta/model_train/yolov8n-face.pt"
+        self.input_dir = r'model_beta/input_folder'
+        self.input_image_dir = r"model_beta/input_image"
+        self.output_dir = r'model_beta/output_folder'
+        self.detected_frame_dir = r'model_beta/detected_frame_folder'
+        self.detect_model_path = r"model_train/yolov8n-face.pt"
         self.number_camera = 2
 
         self.current_camera = 0
 
         # Khởi tạo các mô hình nhận diện và phát hiện
-        self.face_detector = YuNet(modelPath=r'model_beta/model_train/yunet.onnx',
+        self.face_detector = YuNet(modelPath=r'model_train/yunet.onnx',
                                    inputSize=[320, 320],
                                    confThreshold=0.8,
                                    nmsThreshold=0.3,
@@ -45,7 +48,7 @@ class MainWindow(QWidget):
                                    backendId=cv2.dnn.DNN_BACKEND_OPENCV,
                                    targetId=cv2.dnn.DNN_TARGET_CPU)
 
-        self.face_recognizer = SFace(modelPath=r'model_beta/model_train/reg.onnx',
+        self.face_recognizer = SFace(modelPath=r'model_train/reg.onnx',
                                      disType=0,
                                      backendId=cv2.dnn.DNN_BACKEND_OPENCV,
                                      targetId=cv2.dnn.DNN_TARGET_CPU)
@@ -73,7 +76,7 @@ class MainWindow(QWidget):
 
         self.camera_box = QComboBox()
         self.camera_box.addItems([str(i) for i in range(self.number_camera)])
-        
+
         # Đặt layout lưới vào layout bên trái
         left_layout.addWidget(self.camera_box)
         left_layout.addWidget(self.video_label)
@@ -106,30 +109,18 @@ class MainWindow(QWidget):
         self.result_label_3.setStyleSheet("border:2px solid black;")
         self.result_label_3.setFixedSize(200, 200)
 
-        # Các nút để chuyển đến camera
-        self.btn_cam_1 = QPushButton("Chuyển đến Camera 1")
-        self.btn_cam_1.clicked.connect(lambda: self.change_to_camera(0))
-        self.btn_cam_1.setVisible(False)  # Ẩn nút ban đầu
 
-        self.btn_cam_2 = QPushButton("Chuyển đến Camera 2")
-        self.btn_cam_2.clicked.connect(lambda: self.change_to_camera(1))
-        self.btn_cam_2.setVisible(False)  # Ẩn nút ban đầu
-
-        self.btn_cam_3 = QPushButton("Chuyển đến Camera 3")
-        self.btn_cam_3.clicked.connect(lambda: self.change_to_camera(2))
-        self.btn_cam_3.setVisible(False)  # Ẩn nút ban đầu
 
         right_layout.addWidget(self.btn_upload)
         right_layout.addWidget(self.upload_label)
         right_layout.addWidget(self.result_label_1)
-        right_layout.addWidget(self.btn_cam_1)  # Thêm nút cho camera 1
         right_layout.addWidget(self.result_label_2)
-        right_layout.addWidget(self.btn_cam_2)  # Thêm nút cho camera 2
         right_layout.addWidget(self.result_label_3)
-        right_layout.addWidget(self.btn_cam_3)  # Thêm nút cho camera 3
 
         right_layout.addWidget(self.btn_mp4)
 
+        self.result_label_1.mousePressEvent = self.on_result_label_1_clicked
+        self.result_label_2.mousePressEvent = self.on_result_label_2_clicked
 
         # Thêm layout bên trái và bên phải vào layout chính
         main_layout.addLayout(left_layout)
@@ -140,24 +131,22 @@ class MainWindow(QWidget):
 
         # Khởi động các video
         self.video_caps = [
-            cv2.VideoCapture('model_beta/video_test/vi2.mp4'),
-            cv2.VideoCapture('model_beta/video_test/video.mp4')
+            cv2.VideoCapture('video_test/vi2.mp4'),
+            cv2.VideoCapture('video_test/vi3.mp4')
         ]
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_frames)
-        self.timer.start(33)
+        self.timer.start(30)
 
         self.camera_box.activated.connect(self.change_camera)
 
         self.target_img_path = None
         self.count_video_frame = [0] * 2
 
-
     def change_camera(self, index):
         self.current_camera = int(index)
         print(index)
-
 
     def update_frames(self):
         ret_all = set()
@@ -222,54 +211,48 @@ class MainWindow(QWidget):
         label.setPixmap(QPixmap.fromImage(q_img))
 
     def upload_image(self):
-    # Chọn ảnh từ máy tính
+        # Chọn ảnh từ máy tính
         options = QFileDialog.Options()
         file_name, _ = QFileDialog.getOpenFileName(self, "Chọn ảnh", "", "Image Files (*.png *.jpg *.jpeg *.bmp)",
-                                                options=options)
+                                                   options=options)
 
         if file_name:
             self.target_img_path = file_name
+
             image = cv2.imread(file_name)
 
-            # Thực hiện nhận diện
-            results = process_Images(self.input_dir, self.target_img_path, self.face_detector, self.face_recognizer,
-                                    self.output_dir)
+            # Thực hiện recognize
+            process_Images(self.input_dir, self.target_img_path, self.face_detector, self.face_recognizer,
+                           self.output_dir)
 
-            # Hiển thị ảnh tải lên
+            # Scale và hiện ảnh tải lên
             self.display_scaled_image(self.upload_label, image)
 
-            # Lấy tên file của ảnh để khớp với folder trong camera folder
-            input_image_name = os.path.basename(self.target_img_path).split('.')[0]
+            # Lấy tên file của input_image hoặc target_img_path để khớp với folder trong cam folder
+            input_image_name = os.path.basename(self.target_img_path).split('.')[
+                0]  # Ex: "target_img_path.jpg" -> "target_img_path"
+            print(input_image_name)
 
-            # Khởi tạo danh sách để lưu ảnh kết quả cho từng camera
-            result_images = [None] * self.number_camera
-
-            # Kiểm tra kết quả và hiển thị nút chuyển camera
+            # Iterate through each camera folder in output_folder
             for cam_id in range(self.number_camera):
-                cam_folder = os.path.join(self.output_dir, f"{cam_id}")
+                cam_folder = os.path.join(self.output_dir,
+                                          f"{cam_id}")  # Ensure 'cam_' prefix matches your folder structure
+
+                # Check if a folder with the input image name exists inside the camera folder
                 img_folder = os.path.join(cam_folder, input_image_name)
-
                 if os.path.exists(img_folder):
-                    # Tải ảnh từ folder
-                    found_images = sorted([os.path.join(img_folder, img) for img in os.listdir(img_folder)
-                                        if img.endswith(('.jpg', '.png', '.jpeg', '.bmp'))])
+                    # Load images from the folder
+                    result_images = sorted([os.path.join(img_folder, img) for img in os.listdir(img_folder)
+                                            if img.endswith(('.jpg', '.png', '.jpeg', '.bmp'))])
 
-                    if found_images:
-                        # Chỉ lấy ảnh đầu tiên cho mỗi camera
-                        result_images[cam_id] = cv2.imread(found_images[0])
-                        print(f"Camera {cam_id} có ảnh kết quả: {found_images[0]}")
-                        
-                        # Hiển thị ảnh kết quả tương ứng
-                        if cam_id == 0:
-                            self.display_scaled_image(self.result_label_1, result_images[cam_id])
-                            self.btn_cam_1.setVisible(True)  # Hiện nút cho camera 1
-                        elif cam_id == 1:
-                            self.display_scaled_image(self.result_label_2, result_images[cam_id])
-                            self.btn_cam_2.setVisible(True)  # Hiện nút cho camera 2
-                        elif cam_id == 2:
-                            self.display_scaled_image(self.result_label_3, result_images[cam_id])
-                            self.btn_cam_3.setVisible(True)  # Hiện nút cho camera 3
+                    # Display results in the respective result labels
+                    if cam_id == 0 and len(result_images) > 0:
+                        result_image_1 = cv2.imread(result_images[0])
+                        self.display_scaled_image(self.result_label_1, result_image_1)
 
+                    if cam_id == 1 and len(result_images) > 0:
+                        result_image_2 = cv2.imread(result_images[0])  # Assuming the first image in cam_1 folder
+                        self.display_scaled_image(self.result_label_2, result_image_2)
 
     def display_scaled_image(self, label, image):
         """Scale the image to fit inside the QLabel and pad with black if necessary."""
@@ -318,6 +301,7 @@ class MainWindow(QWidget):
         """Chuyển đến camera chứa người được nhận diện."""
         self.current_camera = camera_id
         print(f"Chuyển đến Camera {camera_id + 1}")
+        # Optional: Add code to update UI or refresh video display when the camera changes
 
     def extract_camera_id(self, filename):
         """Trích xuất ID camera từ tên tệp."""
@@ -325,7 +309,25 @@ class MainWindow(QWidget):
         if match:
             return int(match.group(1))
         return None
-    
+
+    def on_result_label_1_clicked(self, event):
+        """Handle click on result_label_1 to switch to corresponding camera."""
+        if self.result_label_1.pixmap() is not None:
+            camera_id = 0  # Camera 1 corresponds to camera_id 0
+            self.change_to_camera(camera_id)
+        else:
+            print("No image in result_label_1")
+
+    def on_result_label_2_clicked(self, event):
+        """Handle click on result_label_2 to switch to corresponding camera."""
+        if self.result_label_2.pixmap() is not None:
+            camera_id = 1  # Camera 2 corresponds to camera_id 1
+            self.change_to_camera(camera_id)
+        else:
+            print("No image in result_label_2")
+
+
+
     def make_Mp4(self):
         fps = 24
         try:
