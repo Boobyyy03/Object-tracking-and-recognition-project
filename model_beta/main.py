@@ -9,8 +9,7 @@ from detect import *
 from input_image_process import *
 from recognition import *
 import shutil
-from PyQt5.QtWidgets import QApplication, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QFileDialog, \
-    QGridLayout, QComboBox
+from PyQt5.QtWidgets import QApplication, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QFileDialog, QGridLayout, QComboBox
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import QTimer
 import cv2
@@ -97,34 +96,38 @@ class MainWindow(QWidget):
         self.btn_mp4.clicked.connect(self.make_Mp4)
 
         # Labels để hiển thị 3 ảnh xuất ra
-        self.result_label_1 = QLabel("Ảnh kết quả 1")
-        self.result_label_1.setStyleSheet("border:2px solid black;")
-        self.result_label_1.setFixedSize(200, 200)
 
-        self.result_label_2 = QLabel("Ảnh kết quả 2")
-        self.result_label_2.setStyleSheet("border:2px solid black;")
-        self.result_label_2.setFixedSize(200, 200)
-
-        self.result_label_3 = QLabel("Ảnh kết quả 3")
-        self.result_label_3.setStyleSheet("border:2px solid black;")
-        self.result_label_3.setFixedSize(200, 200)
+        self.result_labels = list()
+        for i in range(self.number_camera):
+            result_label = QLabel("Ảnh kết quả " + str(i + 1))
+            result_label.setStyleSheet("border:2px solid black;")
+            result_label.setFixedSize(200, 200)
+            self.result_labels.append(result_label)
 
 
 
         right_layout.addWidget(self.btn_upload)
         right_layout.addWidget(self.upload_label)
-        right_layout.addWidget(self.result_label_1)
-        right_layout.addWidget(self.result_label_2)
-        right_layout.addWidget(self.result_label_3)
+        for i in range(self.number_camera):
+            right_layout.addWidget(self.result_labels[i])
 
         right_layout.addWidget(self.btn_mp4)
 
-        self.result_label_1.mousePressEvent = self.on_result_label_1_clicked
-        self.result_label_2.mousePressEvent = self.on_result_label_2_clicked
+        for i in range(self.number_camera)
+            self.on_result_label_clicked(self.result_labels[i].mousePressEvent, i)
+
+
+        box_layout = QVBoxLayout()
+        self.box_results = list()
+        for i in range(self.number_camera):
+            box_result = QLabel("")
+            self.box_results.append(box_result)
+
 
         # Thêm layout bên trái và bên phải vào layout chính
         main_layout.addLayout(left_layout)
         main_layout.addLayout(right_layout)
+        main_layout.addLayout(box_layout)
 
         # Đặt layout chính cho cửa sổ
         self.setLayout(main_layout)
@@ -143,6 +146,10 @@ class MainWindow(QWidget):
 
         self.target_img_path = None
         self.count_video_frame = [0] * 2
+
+    def display_box_text(self):
+        for i in range(self.number_camera):
+            self.result_labels[i].setText(f"Camera {str(i + 1)}")
 
     def change_camera(self, index):
         self.current_camera = int(index)
@@ -310,22 +317,13 @@ class MainWindow(QWidget):
             return int(match.group(1))
         return None
 
-    def on_result_label_1_clicked(self, event):
+    def on_result_label_clicked(self, event, number):
         """Handle click on result_label_1 to switch to corresponding camera."""
-        if self.result_label_1.pixmap() is not None:
-            camera_id = 0  # Camera 1 corresponds to camera_id 0
+        if self.result_labels[number].pixmap() is not None:
+            camera_id = number  # Camera 1 corresponds to camera_id 0
             self.change_to_camera(camera_id)
         else:
             print("No image in result_label_1")
-
-    def on_result_label_2_clicked(self, event):
-        """Handle click on result_label_2 to switch to corresponding camera."""
-        if self.result_label_2.pixmap() is not None:
-            camera_id = 1  # Camera 2 corresponds to camera_id 1
-            self.change_to_camera(camera_id)
-        else:
-            print("No image in result_label_2")
-
 
 
     def make_Mp4(self):
