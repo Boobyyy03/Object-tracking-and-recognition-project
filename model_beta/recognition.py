@@ -24,6 +24,7 @@ def process_Images(input_dir, target_img_path, model_face_detector, model_face_r
         return
 
     processed_count_per_id = {}
+    score_per_id = {}  # Dictionary to store scores per img_id
     max_images_to_process = 3
     folders_to_rename = {}
 
@@ -42,6 +43,8 @@ def process_Images(input_dir, target_img_path, model_face_detector, model_face_r
         cam_id = parts[0]  # Camera ID
         img_id = parts[1]  # Person ID
         frame_num = parts[2].split('.')[0]  # Frame number, without the file extension
+        print(parts)
+        
 
         # Ensure the processed count per cam_id and img_id
         if cam_id not in processed_count_per_id:
@@ -75,10 +78,16 @@ def process_Images(input_dir, target_img_path, model_face_detector, model_face_r
 
                 img = visualize_Recognition(img, detected_faces, target_img, [match], [score])
 
-                output_img_path = os.path.join(img_output_subdir, f"output_{img_name}")
+                img_name_b = img_name.split('.')[0]
+                
+
+                output_img_path = os.path.join(img_output_subdir, f"output_{img_name_b}_{int(score * 100)}.jpg")
                 cv2.imwrite(output_img_path, img)
 
                 processed_count_per_id[cam_id][img_id] += 1
+
+                if (cam_id, img_id) not in score_per_id or score > score_per_id[(cam_id, img_id)]:
+                    score_per_id[(cam_id, img_id)] = score
 
                 if match:
                     folders_to_rename[img_output_subdir] = os.path.join(cam_output_subdir, target_img_name)
@@ -93,9 +102,23 @@ def process_Images(input_dir, target_img_path, model_face_detector, model_face_r
             shutil.move(original_folder, new_folder)
         else:
             print(f"Warning: Target folder '{new_folder}' already exists. Skipping rename for '{original_folder}'.")
+    print("Score per ID:")
+    print(score_per_id)
+    # Return the score dictionary
+    return score_per_id
 
-    print(f"Processing complete. Output saved to {output_dir}")
 
+def get_top_3_ids(score_per_id):
+    """
+    Takes a dictionary of scores per img_id and returns the top 3 IDs with the highest scores.
+    """
+    # Sort the score_per_id dictionary by score in descending order
+    sorted_ids = sorted(score_per_id.items(), key=lambda item: item[1], reverse=True)
+
+    # Get the top 3 entries (img_id, score)
+    top_3 = sorted_ids[:3]
+
+    return top_3
 
 def detect_Face_Landmarks(img, face, mp_face_mesh):
     """
@@ -147,7 +170,7 @@ def visualize_Recognition(frame, faces, target_img, matches, scores, box_color=(
         if text_y + text_h > y + h:
             text_y = y + h - 5
 
-        cv2.putText(frame, score_text, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, font_scale, text_color,
-                    font_thickness)
-
+        # cv2.putText(frame, score_text, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, font_scale, text_color,
+        #             font_thickness)
+        
     return frame

@@ -31,17 +31,17 @@ class MainWindow(QWidget):
         super().__init__()
 
         # Định nghĩa các thư mục
-        self.input_dir = r'model_beta/input_folder'
-        self.input_image_dir = r"model_beta/input_image"
-        self.output_dir = r'model_beta/output_folder'
-        self.detected_frame_dir = r'model_beta/detected_frame_folder'
-        self.detect_model_path = r"model_train/yolov8n-face.pt"
+        self.input_dir = r'model_beta/model_beta/input_folder'
+        self.input_image_dir = r"model_beta/model_beta/input_image"
+        self.output_dir = r'model_beta/model_beta/output_folder'
+        self.detected_frame_dir = r'model_beta/model_beta/detected_frame_folder'
+        self.detect_model_path = r"model_beta/model_train/yolov8n-face.pt"
         self.number_camera = 2
 
         self.current_camera = 0
 
         # Khởi tạo các mô hình nhận diện và phát hiện
-        self.face_detector = YuNet(modelPath=r'model_train/yunet.onnx',
+        self.face_detector = YuNet(modelPath=r'model_beta/model_train/yunet.onnx',
                                    inputSize=[320, 320],
                                    confThreshold=0.8,
                                    nmsThreshold=0.3,
@@ -49,7 +49,7 @@ class MainWindow(QWidget):
                                    backendId=cv2.dnn.DNN_BACKEND_OPENCV,
                                    targetId=cv2.dnn.DNN_TARGET_CPU)
 
-        self.face_recognizer = SFace(modelPath=r'model_train/reg.onnx',
+        self.face_recognizer = SFace(modelPath=r'model_beta/model_train/reg.onnx',
                                      disType=0,
                                      backendId=cv2.dnn.DNN_BACKEND_OPENCV,
                                      targetId=cv2.dnn.DNN_TARGET_CPU)
@@ -123,17 +123,22 @@ class MainWindow(QWidget):
 
         # box để cân chỉnh giao diện cho dễ nhìn
         box_blank = QLabel("")
-        box_blank.setFixedSize(200, 400)
-        box_layout.addWidget(self.box_blank)
+        box_blank.setFixedSize(200, 280)
+        box_layout.addWidget(box_blank)
+
 
         self.box_results = list()
         for i in range(self.number_camera):
             box_result = QLabel("")
-
             box_result.setFixedSize(200, 200)
+            box_result.setStyleSheet("border:2px solid black")
             self.box_results.append(box_result)
             box_layout.addWidget(self.box_results[i])
 
+
+        box_blank2 = QLabel("")
+        box_blank2.setFixedSize(200, 20)
+        box_layout.addWidget(box_blank2)
 
         # Thêm layout bên trái và bên phải vào layout chính
         main_layout.addLayout(left_layout)
@@ -145,26 +150,25 @@ class MainWindow(QWidget):
 
         # Khởi động các video
         self.video_caps = [
-            cv2.VideoCapture('video_test/vi2.mp4'),
-            cv2.VideoCapture('video_test/vi3.mp4')
+            cv2.VideoCapture('model_beta/video_test/vi2.mp4'),
+            cv2.VideoCapture('model_beta/video_test/video.mp4')
         ]
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_frames)
-        self.timer.start(30)
+        self.timer.start(1500)
 
         self.camera_box.activated.connect(self.change_camera)
 
         self.target_img_path = None
         self.count_video_frame = [0] * 2
 
-    def display_box_text(self):
-
+    def display_box_text(self,id_cam, score):
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        for i in range(self.number_camera):
-        # Set the box text with the camera number and current date/time
-            self.box_results[i].setText(f"Camera {str(i + 1)}\nTime: {current_time}")
+        # for i in range(self.number_camera):
+        # # Set the box text with the camera number and current date/time
+        self.box_results[id_cam].setText(f"Camera {str(id_cam + 1)}\nTime: {current_time}\nConfidence: {score}")
 
     def change_camera(self, index):
         self.current_camera = int(index)
@@ -244,8 +248,7 @@ class MainWindow(QWidget):
             image = cv2.imread(file_name)
 
             # Thực hiện recognize
-            process_Images(self.input_dir, self.target_img_path, self.face_detector, self.face_recognizer,
-                           self.output_dir)
+            process_Images(self.input_dir, self.target_img_path, self.face_detector, self.face_recognizer, self.output_dir)
 
             # Scale và hiện ảnh tải lên
             self.display_scaled_image(self.upload_label, image)
@@ -271,12 +274,13 @@ class MainWindow(QWidget):
                     if cam_id == 0 and len(result_images) > 0:
                         result_image_1 = cv2.imread(result_images[0])
                         self.display_scaled_image(self.result_labels[0], result_image_1)
-
+                        confScore = result_images[0].split("_")[-1].split(".")[0]
+                        self.display_box_text(cam_id, confScore)
                     if cam_id == 1 and len(result_images) > 0:
                         result_image_2 = cv2.imread(result_images[0])  # Assuming the first image in cam_1 folder
                         self.display_scaled_image(self.result_labels[1], result_image_2)
-
-            self.display_box_text()
+                        confScore = result_images[0].split("_")[-1].split(".")[0]
+                        self.display_box_text(cam_id, confScore)
 
     def display_scaled_image(self, label, image):
         """Scale the image to fit inside the QLabel and pad with black if necessary."""
