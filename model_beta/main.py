@@ -1,5 +1,6 @@
 import sys
 import re
+from functools import partial
 from PyQt5.QtCore import QUrl, Qt
 from PyQt5.QtGui import QDesktopServices
 # Các import liên quan đến phát hiện và nhận diện khuôn mặt
@@ -67,7 +68,6 @@ class MainWindow(QWidget):
 
         # Tạo layout lưới cho 4 video và thêm vào bên trái của giao diện
         left_layout = QVBoxLayout()
-        grid_layout = QGridLayout()
 
         self.video_label = QLabel(f"Video")
         self.video_label.setFixedSize(1280, 960)  # Kích thước nhỏ hơn cho 4 video
@@ -113,15 +113,19 @@ class MainWindow(QWidget):
 
         right_layout.addWidget(self.btn_mp4)
 
-        for i in range(self.number_camera)
-            self.on_result_label_clicked(self.result_labels[i].mousePressEvent, i)
+
+        for i in range(self.number_camera):
+            self.result_labels[i].mousePressEvent = partial(self.on_result_label_clicked, i)
 
 
         box_layout = QVBoxLayout()
         self.box_results = list()
         for i in range(self.number_camera):
             box_result = QLabel("")
+
+            box_result.setFixedSize(200, 200)
             self.box_results.append(box_result)
+            box_layout.addWidget(self.box_results[i])
 
 
         # Thêm layout bên trái và bên phải vào layout chính
@@ -149,7 +153,7 @@ class MainWindow(QWidget):
 
     def display_box_text(self):
         for i in range(self.number_camera):
-            self.result_labels[i].setText(f"Camera {str(i + 1)}")
+            self.box_results[i].setText(f"Camera {str(i + 1)}")
 
     def change_camera(self, index):
         self.current_camera = int(index)
@@ -255,11 +259,11 @@ class MainWindow(QWidget):
                     # Display results in the respective result labels
                     if cam_id == 0 and len(result_images) > 0:
                         result_image_1 = cv2.imread(result_images[0])
-                        self.display_scaled_image(self.result_label_1, result_image_1)
+                        self.display_scaled_image(self.result_labels[0], result_image_1)
 
                     if cam_id == 1 and len(result_images) > 0:
                         result_image_2 = cv2.imread(result_images[0])  # Assuming the first image in cam_1 folder
-                        self.display_scaled_image(self.result_label_2, result_image_2)
+                        self.display_scaled_image(self.result_labels[1], result_image_2)
 
     def display_scaled_image(self, label, image):
         """Scale the image to fit inside the QLabel and pad with black if necessary."""
@@ -317,13 +321,13 @@ class MainWindow(QWidget):
             return int(match.group(1))
         return None
 
-    def on_result_label_clicked(self, event, number):
-        """Handle click on result_label_1 to switch to corresponding camera."""
+    def on_result_label_clicked(self, number, event):
+        """Handle click on result_label to switch to corresponding camera."""
         if self.result_labels[number].pixmap() is not None:
-            camera_id = number  # Camera 1 corresponds to camera_id 0
+            camera_id = number
             self.change_to_camera(camera_id)
         else:
-            print("No image in result_label_1")
+            print(f"No image in result_label_{number + 1}")
 
 
     def make_Mp4(self):
