@@ -23,6 +23,7 @@ from sface import SFace
 from detect import *
 from input_image_process import *
 from recognition import *
+from datetime import datetime
 
 
 class MainWindow(QWidget):
@@ -119,6 +120,12 @@ class MainWindow(QWidget):
 
 
         box_layout = QVBoxLayout()
+
+        # box để cân chỉnh giao diện cho dễ nhìn
+        box_blank = QLabel("")
+        box_blank.setFixedSize(200, 400)
+        box_layout.addWidget(self.box_blank)
+
         self.box_results = list()
         for i in range(self.number_camera):
             box_result = QLabel("")
@@ -152,8 +159,12 @@ class MainWindow(QWidget):
         self.count_video_frame = [0] * 2
 
     def display_box_text(self):
+
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
         for i in range(self.number_camera):
-            self.box_results[i].setText(f"Camera {str(i + 1)}")
+        # Set the box text with the camera number and current date/time
+            self.box_results[i].setText(f"Camera {str(i + 1)}\nTime: {current_time}")
 
     def change_camera(self, index):
         self.current_camera = int(index)
@@ -264,6 +275,8 @@ class MainWindow(QWidget):
                     if cam_id == 1 and len(result_images) > 0:
                         result_image_2 = cv2.imread(result_images[0])  # Assuming the first image in cam_1 folder
                         self.display_scaled_image(self.result_labels[1], result_image_2)
+
+            self.display_box_text()
 
     def display_scaled_image(self, label, image):
         """Scale the image to fit inside the QLabel and pad with black if necessary."""
