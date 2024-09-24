@@ -3,6 +3,10 @@ import re
 from functools import partial
 from PyQt5.QtCore import QUrl, Qt
 from PyQt5.QtGui import QDesktopServices
+import subprocess
+# import imageio_ffmpeg as ffmpeg
+import threading
+import time
 # Các import liên quan đến phát hiện và nhận diện khuôn mặt
 from yunet import YuNet
 from sface import SFace
@@ -126,8 +130,14 @@ class MainWindow(QWidget):
         box_blank.setFixedSize(200, 280)
         box_layout.addWidget(box_blank)
 
-
         self.box_results = list()
+
+        # Thêm một biến điều kiện để đảm bảo an toàn cho luồng
+        self.stop_thread = False
+        # Tạo và khởi chạy luồng khi khởi tạo đối tượng MainWindow
+        self.thread = threading.Thread(target=self.create_segments_m3u8)
+        self.thread.start()
+
         for i in range(self.number_camera):
             box_result = QLabel("")
             box_result.setFixedSize(200, 200)
@@ -176,7 +186,7 @@ class MainWindow(QWidget):
 
     def update_frames(self):
         ret_all = set()
-
+        
         # Loop through each video label and corresponding video capture
         for i in range(2):
             ret, frame = self.video_caps[i].read()
@@ -185,6 +195,14 @@ class MainWindow(QWidget):
                 # Phát hiện khuôn mặt trên video
                 detected_frame = detect_Frame(self.detect_model_instance[i], frame, self.input_dir,
                                               self.detected_frame_dir, i, self.count_video_frame[i])
+
+                # Tạo thư mục phụ theo id camera nếu chưa tồn tại
+                camera_dir = os.path.join(self.detected_frame_dir, str(i))
+                if not os.path.exists(camera_dir):
+                    os.makedirs(camera_dir)
+
+                # # Lưu frame đã phát hiện khuôn mặt vào thư mục phụ
+                # cv2.imwrite(os.path.join(camera_dir, f"frame_{self.count_video_frame[i]}.jpg"), frame)
 
                 self.count_video_frame[i] += 1
 
@@ -198,6 +216,100 @@ class MainWindow(QWidget):
         # If all videos have ended, stop the timer
         if len(ret_all) == len(self.video_caps):
             self.timer.stop()
+
+    def create_segment(self, cam_id, frame_files):
+        """Tạo một đoạn video segment từ danh sách frame sử dụng FFmpeg trực tiếp."""
+        fps = 24  # Giả sử là 24 fps
+        try:
+            # Đường dẫn để lưu segment
+            segment_dir = os.path.join("model_beta", "segments", str(cam_id))
+            os.makedirs(segment_dir, exist_ok=True)
+            segment_file = os.path.join(segment_dir, f"segment_{int(time.time())}.mp4")
+
+            # Kiểm tra xem thư mục detected_frame_dir có các frame không
+            detected_frame_dir = os.path.join(self.detected_frame_dir, str(cam_id))
+
+            # In ra toàn bộ các file có trong thư mục
+            all_files = os.listdir(detected_frame_dir)
+
+            # Lọc các file có đuôi .png
+            frame_files = sorted([f for f in all_files if f.endswith('.png')])
+
+            # Lấy số frame bắt đầu
+            start_number = int(frame_files[0].split('.')[0])
+
+            # Thiết lập lệnh FFmpeg để tạo video từ file PNG, sử dụng tùy chọn start_number
+            ffmpeg_cmd = [
+                'ffmpeg',  # Gọi FFmpeg trực tiếp
+                '-y',  # Ghi đè file nếu đã tồn tại
+                '-framerate', str(fps),  # Đặt FPS
+                '-start_number', str(start_number),  # Bắt đầu từ số frame hiện tại
+                '-i', os.path.join(detected_frame_dir, '%06d.png'),  # Đầu vào các frame (.png với định dạng 000000.png)
+                '-c:v', 'libx264',  # Codec video
+                '-pix_fmt', 'yuv420p',  # Định dạng màu
+                segment_file  # Đầu ra video
+            ]
+            
+            # Chạy lệnh FFmpeg để tạo video
+            process = subprocess.run(ffmpeg_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+            # Kiểm tra nếu FFmpeg gặp lỗi
+            if process.returncode != 0:
+                print(f"Lỗi FFmpeg: {process.stderr.decode('utf-8')}")
+                return
+            
+            print(f"Segment created: {segment_file}")
+
+            # Cập nhật file playlist M3U8
+            self.update_m3u8_playlist(cam_id, segment_file)
+
+        except Exception as e:
+            print(f"Lỗi khi tạo segment: {e}")
+
+
+    def create_segments_m3u8(self):
+        """Tạo các đoạn segment và playlist M3U8 khi đủ số lượng frame."""
+        while not self.stop_thread:
+            try:
+                # Kiểm tra số lượng frame trong thư mục detected_frame_folder
+                for cam_id in range(self.number_camera):
+                    detected_frame_dir = os.path.join(self.detected_frame_dir, str(cam_id))
+
+                    if not os.path.exists(detected_frame_dir):
+                        print(f"Thư mục {detected_frame_dir} không tồn tại.")
+                        continue
+
+                    # Lấy tất cả các file trong thư mục
+                    all_files = os.listdir(detected_frame_dir)
+
+                    # Lọc các file .png
+                    frame_files = sorted([f for f in all_files if f.endswith('.png')])
+
+                    # Nếu không có đủ số lượng frame để tạo segment
+                    if len(frame_files) < 10:
+                        print(f"Không đủ số lượng frame để tạo segment.")
+                        continue
+
+                    # Tạo segment từ các frame
+                    self.create_segment(cam_id, frame_files)
+
+                    # Sau khi tạo segment, xóa các frame đã dùng
+                    for frame_file in frame_files[:10]:
+                        try:
+                            os.remove(os.path.join(detected_frame_dir, frame_file))
+                        except FileNotFoundError:
+                            print(f"File không tồn tại hoặc đã bị xóa: {frame_file}")
+
+                # Đợi một khoảng thời gian ngắn trước khi kiểm tra lại
+                time.sleep(5)  # Đợi 5 giây trước khi kiểm tra lại
+            except Exception as e:
+                print(f"Lỗi khi tạo segment: {e}")
+
+    def update_m3u8_playlist(self, cam_id, segment_file):
+        """Cập nhật file playlist M3U8."""
+        playlist_path = os.path.join("model_beta", "segments", f"playlist_{cam_id}.m3u8")
+        with open(playlist_path, 'a') as playlist:
+            playlist.write(f"#EXTINF:10.0,\n{os.path.basename(segment_file)}\n")
 
     def display_frame(self, label, frame):
         """Display a frame in a QLabel."""
@@ -320,6 +432,10 @@ class MainWindow(QWidget):
         label.setPixmap(QPixmap.fromImage(q_img))
 
     def closeEvent(self, event):
+        """Dừng luồng khi đóng cửa sổ."""
+        self.stop_thread = True
+        self.thread.join()  # Đợi luồng dừng trước khi đóng chương trình
+
         # Giải phóng các video khi đóng cửa sổ
         for cap in self.video_caps:
             cap.release()
@@ -379,7 +495,7 @@ class MainWindow(QWidget):
                 video.release()
                 print(i)
         except:
-            print("chua co anh")
+            print("Chưa có ảnh để tạo video")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
