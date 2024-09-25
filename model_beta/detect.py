@@ -7,6 +7,7 @@ from ultralytics import YOLO
 
 
 
+
 def detect_Model(link_detect_model, device="cpu"):
     # Choose device
     device = pt.device(device)
@@ -30,19 +31,63 @@ def get_Date_Time(decimal_sec = 1):
     return "_" + "".join(date_frame) + "".join(time_frame)
 
 
-def detect_Frame(detect_model, frame, link_output_folder, link_detected_frame_folder, camera, count_video_frame,
+def detect_Frame(detect_model, frame, dict_id_image, resnet, link_output_folder, link_detected_frame_folder, camera, count_video_frame,
                  conf_threshold=0.5):
     # Run YOLOv8 tracking on the frame, persisting tracks between frames
     results = detect_model.track(frame, persist=True)
+    shape_face_now = 120
 
     # Take bounding boxes and infomation
     for detect_object in results[0].boxes:
         id, co, bb = detect_object.id, detect_object.conf, detect_object.data[0, :4]
         x1, y1, x2, y2 = map(int, bb)
+        face_now = cv2.resize(frame[int(y1):int(y2), int(x1):int(x2)], (shape_face_now, shape_face_now))
+            
         try:
             id = int(id)
         except:
             id = 0
+        
+        id_show = id
+            
+        if len(dict_id_image) < 2:
+            dict_id_image[id] = [[id], face_now, face_now]
+        else:
+            add_dict = 0
+            for case in range(1, len(dict_id_image)):
+                #print(dict_id_image[case][0])
+                if id in dict_id_image[case][0]:
+                    dict_id_image[case][2] = face_now
+                    id_show = case
+                    add_dict = 1
+                    break
+                else:
+                    if count_dict < id:
+                        count_dict = id
+                        image_pt_1 = pt.zeros((1, 3, shape_face_now, shape_face_now))
+                        image_pt_2 = pt.zeros((1, 3, shape_face_now, shape_face_now))
+                        image_pt = pt.zeros((1, 3, shape_face_now, shape_face_now))
+
+                        for i in range(3):
+                            image_pt_1[0, i] = pt.tensor(dict_id_image[case][1][:,:,2-i])
+                            image_pt_2[0, i] = pt.tensor(dict_id_image[case][2][:,:,2-i])
+                            image_pt[0, i] = pt.tensor(face_now[:,:,2-i])
+
+                        image_pt_1 = resnet(image_pt_1)
+                        image_pt_2 = resnet(image_pt_2)
+                        image_pt = resnet(image_pt)
+
+                        if (cos_similarity(image_pt, image_pt_1) > 0.9) or (cos_similarity(image_pt, image_pt_2) > 0.9):
+                            dict_id_image[case][0].append(id)
+                            dict_id_image[case][2] = face_now
+                            id_show = case
+                            add_dict = 1
+                            break
+                        else:
+                            continue
+            if add_dict == 0:
+                id_show = len(dict_id_image) + 1
+                dict_id_image[len(dict_id_image) + 1] = [[id], face_now, face_now]
 
         if co < conf_threshold:
             continue
@@ -53,12 +98,12 @@ def detect_Frame(detect_model, frame, link_output_folder, link_detected_frame_fo
 
         # Crop face and save in output folder
         image_face = frame[y1:y2, x1:x2]
-        cv2.imwrite(os.path.join(link_output_folder, f"{camera}_{id}_{count_video_frame}{datetime_frame}.jpg"), image_face)
+        cv2.imwrite(os.path.join(link_output_folder, f"{camera}_{id_show}_{count_video_frame}{datetime_frame}.png"), image_face)
 
         # Draw bounding boxes on frame
         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
         cv2.rectangle(frame, (x1, y1 - 20), (x1 + 20, y1), (0, 0, 255), -1)
-        cv2.putText(frame, str(id), (x1 + 5, y1 - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 2)
+        cv2.putText(frame, str(id_show), (x1 + 5, y1 - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 2)
         
     
     # Create name for tracked image (frame)
