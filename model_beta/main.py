@@ -28,6 +28,7 @@ from detect import *
 from input_image_process import *
 from recognition import *
 from datetime import datetime
+from facenet_pytorch import InceptionResnetV1
 
 
 class MainWindow(QWidget):
@@ -58,9 +59,16 @@ class MainWindow(QWidget):
                                      backendId=cv2.dnn.DNN_BACKEND_OPENCV,
                                      targetId=cv2.dnn.DNN_TARGET_CPU)
 
+        self.resnet = InceptionResnetV1(pretrained='vggface2').eval()
+        #self.resnet.to(device = "cuda")
+
         self.detect_model_instance = list()
         for i in range(self.number_camera):
             self.detect_model_instance.append(detect_Model(self.detect_model_path, device="cpu"))
+
+        self.dict_id_images = list()
+        for i in range(self.number_camera):
+            self.dict_id_images.append(dict())
 
         # Đảm bảo các thư mục đầu vào và đầu ra tồn tại
         if not os.path.exists(self.input_dir):
@@ -193,7 +201,7 @@ class MainWindow(QWidget):
 
             if ret:
                 # Phát hiện khuôn mặt trên video
-                detected_frame = detect_Frame(self.detect_model_instance[i], frame, self.input_dir,
+                detected_frame = detect_Frame(self.detect_model_instance[i], frame, self.dict_id_images[i], self.resnet, self.input_dir,
                                               self.detected_frame_dir, i, self.count_video_frame[i])
 
                 # Tạo thư mục phụ theo id camera nếu chưa tồn tại
