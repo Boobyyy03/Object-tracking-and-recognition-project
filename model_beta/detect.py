@@ -30,12 +30,16 @@ def get_Date_Time(decimal_sec = 1):
 
     return "_" + "".join(date_frame) + "".join(time_frame)
 
+def cos_similarity(a, b):
+    return pt.cos(pt.sum(a*b)/(pt.sum(a**2)**0.5 * pt.sum(b**2)**0.5))
 
-def detect_Frame(detect_model, frame, dict_id_image, resnet, link_output_folder, link_detected_frame_folder, camera, count_video_frame,
+
+def detect_Frame(detect_model, frame, dict_id_image, count_dict, resnet, link_output_folder, link_detected_frame_folder, camera, count_video_frame,
                  conf_threshold=0.5):
     # Run YOLOv8 tracking on the frame, persisting tracks between frames
     results = detect_model.track(frame, persist=True)
     shape_face_now = 120
+
 
     # Take bounding boxes and infomation
     for detect_object in results[0].boxes:
@@ -49,15 +53,16 @@ def detect_Frame(detect_model, frame, dict_id_image, resnet, link_output_folder,
             id = 0
         
         id_show = id
-            
+                
         if len(dict_id_image) < 2:
-            dict_id_image[id] = [[id], face_now, face_now]
+            dict_id_image[id] = [[id], face_now, face_now, face_now, face_now]
         else:
             add_dict = 0
             for case in range(1, len(dict_id_image)):
                 #print(dict_id_image[case][0])
                 if id in dict_id_image[case][0]:
-                    dict_id_image[case][2] = face_now
+                    dict_id_image[case][2:4] = dict_id_image[case][3:]
+                    dict_id_image[case][4] = face_now
                     id_show = case
                     add_dict = 1
                     break
@@ -66,20 +71,29 @@ def detect_Frame(detect_model, frame, dict_id_image, resnet, link_output_folder,
                         count_dict = id
                         image_pt_1 = pt.zeros((1, 3, shape_face_now, shape_face_now))
                         image_pt_2 = pt.zeros((1, 3, shape_face_now, shape_face_now))
+                        image_pt_3 = pt.zeros((1, 3, shape_face_now, shape_face_now))
+                        image_pt_4 = pt.zeros((1, 3, shape_face_now, shape_face_now))
                         image_pt = pt.zeros((1, 3, shape_face_now, shape_face_now))
 
                         for i in range(3):
                             image_pt_1[0, i] = pt.tensor(dict_id_image[case][1][:,:,2-i])
                             image_pt_2[0, i] = pt.tensor(dict_id_image[case][2][:,:,2-i])
+                            image_pt_3[0, i] = pt.tensor(dict_id_image[case][3][:,:,2-i])
+                            image_pt_4[0, i] = pt.tensor(dict_id_image[case][4][:,:,2-i])
                             image_pt[0, i] = pt.tensor(face_now[:,:,2-i])
 
                         image_pt_1 = resnet(image_pt_1)
                         image_pt_2 = resnet(image_pt_2)
+                        image_pt_3 = resnet(image_pt_3)
+                        image_pt_4 = resnet(image_pt_4)
                         image_pt = resnet(image_pt)
+                        
+                        mean_similarity = (cos_similarity(image_pt, image_pt_1) + cos_similarity(image_pt, image_pt_2) + cos_similarity(image_pt, image_pt_3) + cos_similarity(image_pt, image_pt_4))/4
 
-                        if (cos_similarity(image_pt, image_pt_1) > 0.9) or (cos_similarity(image_pt, image_pt_2) > 0.9):
+                        if mean_similarity > 0.8:
                             dict_id_image[case][0].append(id)
-                            dict_id_image[case][2] = face_now
+                            dict_id_image[case][2:4] = dict_id_image[case][3:]
+                            dict_id_image[case][4] = face_now
                             id_show = case
                             add_dict = 1
                             break
@@ -121,4 +135,4 @@ def detect_Frame(detect_model, frame, dict_id_image, resnet, link_output_folder,
     # Lưu hình ảnh vào địa chỉ
     cv2.imwrite(os.path.join(link_detected_frame_folder , name_frame), frame)
 
-    return frame
+    return frame, dict_id_image, count_dict

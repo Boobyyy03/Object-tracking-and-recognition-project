@@ -20,7 +20,7 @@ from PyQt5.QtCore import QTimer
 import cv2
 import os
 import numpy as np
-
+import torch
 # Các import liên quan đến phát hiện và nhận diện khuôn mặt
 from yunet import YuNet
 from sface import SFace
@@ -36,17 +36,17 @@ class MainWindow(QWidget):
         super().__init__()
 
         # Định nghĩa các thư mục
-        self.input_dir = r'model_beta/model_beta/input_folder'
-        self.input_image_dir = r"model_beta/model_beta/input_image"
-        self.output_dir = r'model_beta/model_beta/output_folder'
-        self.detected_frame_dir = r'model_beta/model_beta/detected_frame_folder'
-        self.detect_model_path = r"model_beta/model_train/yolov8n-face.pt"
+        self.input_dir = r'model_beta/input_folder'
+        self.input_image_dir = r"model_beta/input_image"
+        self.output_dir = r'model_beta/output_folder'
+        self.detected_frame_dir = r'model_beta/detected_frame_folder'
+        self.detect_model_path = r"model_train/yolov8n-face.pt"
         self.number_camera = 2
 
         self.current_camera = 0
 
         # Khởi tạo các mô hình nhận diện và phát hiện
-        self.face_detector = YuNet(modelPath=r'model_beta/model_train/yunet.onnx',
+        self.face_detector = YuNet(modelPath=r'model_train/yunet.onnx',
                                    inputSize=[320, 320],
                                    confThreshold=0.8,
                                    nmsThreshold=0.3,
@@ -54,17 +54,23 @@ class MainWindow(QWidget):
                                    backendId=cv2.dnn.DNN_BACKEND_OPENCV,
                                    targetId=cv2.dnn.DNN_TARGET_CPU)
 
-        self.face_recognizer = SFace(modelPath=r'model_beta/model_train/reg.onnx',
+        self.face_recognizer = SFace(modelPath=r'model_train/reg.onnx',
                                      disType=0,
                                      backendId=cv2.dnn.DNN_BACKEND_OPENCV,
                                      targetId=cv2.dnn.DNN_TARGET_CPU)
 
+
         self.resnet = InceptionResnetV1(pretrained='vggface2').eval()
-        #self.resnet.to(device = "cuda")
+
+
+        self.count_dict = list()
+        for i in range(self.number_camera):
+            self.count_dict.append(0)
+
 
         self.detect_model_instance = list()
         for i in range(self.number_camera):
-            self.detect_model_instance.append(detect_Model(self.detect_model_path, device="cpu"))
+            self.detect_model_instance.append(detect_Model(self.detect_model_path, device="cuda"))
 
         self.dict_id_images = list()
         for i in range(self.number_camera):
@@ -168,13 +174,13 @@ class MainWindow(QWidget):
 
         # Khởi động các video
         self.video_caps = [
-            cv2.VideoCapture('model_beta/video_test/vi2.mp4'),
-            cv2.VideoCapture('model_beta/video_test/video.mp4')
+            cv2.VideoCapture('video_test/video.mp4'),
+            cv2.VideoCapture('video_test/video_1.mp4')
         ]
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_frames)
-        self.timer.start(1500)
+        self.timer.start(30)
 
         self.camera_box.activated.connect(self.change_camera)
 
@@ -201,7 +207,7 @@ class MainWindow(QWidget):
 
             if ret:
                 # Phát hiện khuôn mặt trên video
-                detected_frame = detect_Frame(self.detect_model_instance[i], frame, self.dict_id_images[i], self.resnet, self.input_dir,
+                detected_frame, self.dict_id_images[i], self.count_dict[i] = detect_Frame(self.detect_model_instance[i], frame, self.dict_id_images[i], self.count_dict[i], self.resnet, self.input_dir,
                                               self.detected_frame_dir, i, self.count_video_frame[i])
 
                 # Tạo thư mục phụ theo id camera nếu chưa tồn tại
@@ -257,7 +263,7 @@ class MainWindow(QWidget):
                 '-pix_fmt', 'yuv420p',  # Định dạng màu
                 segment_file  # Đầu ra video
             ]
-            
+
             # Chạy lệnh FFmpeg để tạo video
             process = subprocess.run(ffmpeg_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
@@ -265,7 +271,7 @@ class MainWindow(QWidget):
             if process.returncode != 0:
                 print(f"Lỗi FFmpeg: {process.stderr.decode('utf-8')}")
                 return
-            
+
             print(f"Segment created: {segment_file}")
 
             # Cập nhật file playlist M3U8
