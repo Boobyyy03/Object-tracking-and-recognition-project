@@ -4,6 +4,7 @@
 import cv2 
 import numpy as np
 import os
+import torch as pt
 from yunet import YuNet
 from sface import SFace
 import mediapipe as mp

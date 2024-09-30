@@ -3,6 +3,7 @@ import os
 import matplotlib.pyplot as plt
 import torch as pt
 import datetime
+import torchvision.transforms as transforms
 from ultralytics import YOLO
 
 
@@ -28,7 +29,7 @@ def get_Date_Time(decimal_sec = 1):
     time_frame.append(time_frame[2].split(".")[1][:decimal_sec])
     time_frame[2] = time_frame[2].split(".")[0]
 
-    return "_" + "".join(date_frame) + "".join(time_frame)
+    return " " + " ".join(date_frame) + " ".join(time_frame)
 
 def cos_similarity(a, b):
     return pt.cos(pt.sum(a*b)/(pt.sum(a**2)**0.5 * pt.sum(b**2)**0.5))
@@ -39,6 +40,8 @@ def detect_Frame(detect_model, frame, dict_id_image, count_dict, resnet, link_ou
     # Run YOLOv8 tracking on the frame, persisting tracks between frames
     results = detect_model.track(frame, persist=True)
     shape_face_now = 120
+    list_new_info = []
+    list_new_image = []
 
 
     # Take bounding boxes and infomation
@@ -111,14 +114,37 @@ def detect_Frame(detect_model, frame, dict_id_image, count_dict, resnet, link_ou
 
 
         # Crop face and save in output folder
-        image_face = frame[y1:y2, x1:x2]
-        cv2.imwrite(os.path.join(link_output_folder, f"{camera}_{id_show}_{count_video_frame}{datetime_frame}.png"), image_face)
+        #image_face = frame[y1:y2, x1:x2]
+        #cv2.imwrite(os.path.join(link_output_folder, f"{camera}_{id_show}_{count_video_frame}{datetime_frame}.png"), image_face)
+        list_new_info.append(f"{camera} {id_show} {count_video_frame}{datetime_frame}")
+        list_new_image.append(transforms.ToTensor(face_now))
 
         # Draw bounding boxes on frame
         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
         cv2.rectangle(frame, (x1, y1 - 20), (x1 + 20, y1), (0, 0, 255), -1)
         cv2.putText(frame, str(id_show), (x1 + 5, y1 - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 2)
         
+
+    # Add info and face to file
+    fileo = open(os.path.join(self.input_dir, str(camera) + ".txt"), "a")
+    for info in list_new_info:
+        fileo.write(info + "\n")
+    fileo.close()
+
+    tensor_list = pt.zeros((len(list_new_image), shape_face_now, shape_face_now, 3))
+    for count in range(len(list_new_image)):
+        tensor_list[count, :, :, :] = transforms.ToTensor(list_new_image[count])
+
+    try:
+        tensor_open = pt.load(os.path.join(self.input_dir, str(camera) + ".pt"))
+        len_tensor = tensor_open.shape[0] + len(list_new_image)
+        tensor_new = pt.zeros((len_tensor, shape_face_now, shape_face_now, 3))
+        tensor_new[:tensor_open.shape[0], :, :, :] = tensor_open[:, :, :, :]
+        tensor_new[tensor_open.shape[0]:, :, :, :] = tensor_list[:, :, :, :]
+        pt.save(tensor_new, os.path.join(self.input_dir, str(camera) + ".pt"))
+    except
+        pt.save(tensor_list, os.path.join(self.input_dir, str(camera) + ".pt"))
+
     
     # Create name for tracked image (frame)
     name_frame = ""
