@@ -202,10 +202,10 @@ class MainWindow(QWidget):
         ret_all = set()
         
         # Loop through each video label and corresponding video capture
-        for i in range(2):
+        for i in range(self.number_camera):
             ret, frame = self.video_caps[i].read()
 
-            if ret:
+            if ret and (i == self.current_camera):
                 # Phát hiện khuôn mặt trên video
                 detected_frame, self.dict_id_images[i], self.count_dict[i] = detect_Frame(self.detect_model_instance[i], frame, self.dict_id_images[i], self.count_dict[i], self.resnet, self.input_dir,
                                               self.detected_frame_dir, i, self.count_video_frame[i])

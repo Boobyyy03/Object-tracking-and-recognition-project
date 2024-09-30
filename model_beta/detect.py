@@ -90,7 +90,7 @@ def detect_Frame(detect_model, frame, dict_id_image, count_dict, resnet, link_ou
                         
                         mean_similarity = (cos_similarity(image_pt, image_pt_1) + cos_similarity(image_pt, image_pt_2) + cos_similarity(image_pt, image_pt_3) + cos_similarity(image_pt, image_pt_4))/4
 
-                        if mean_similarity > 0.8:
+                        if mean_similarity > 0.93:
                             dict_id_image[case][0].append(id)
                             dict_id_image[case][2:4] = dict_id_image[case][3:]
                             dict_id_image[case][4] = face_now
