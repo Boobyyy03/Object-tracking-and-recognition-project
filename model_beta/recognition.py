@@ -9,6 +9,7 @@ from yunet import YuNet
 from sface import SFace
 import mediapipe as mp
 import shutil
+import torch as pt
 
 def process_Images(input_dir, target_img_path, model_face_detector, model_face_recognizer, output_dir):
     target_img = cv2.imread(target_img_path)
@@ -28,6 +29,7 @@ def process_Images(input_dir, target_img_path, model_face_detector, model_face_r
     score_per_id = {}  # Dictionary to store scores per img_id
     max_images_to_process = 3
     folders_to_rename = {}
+
 
     for img_name in os.listdir(input_dir):
         img_path = os.path.join(input_dir, img_name)
