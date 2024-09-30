@@ -36,18 +36,18 @@ class MainWindow(QWidget):
         super().__init__()
 
         # Định nghĩa các thư mục
-        self.input_dir = r'model_beta/input_folder'
-        self.input_image_dir = r"model_beta/input_image"
-        self.output_dir = r'model_beta/output_folder'
-        self.detected_frame_dir = r'model_beta/detected_frame_folder'
-        self.detect_model_path = r"model_train/yolov8n-face.pt"
+        self.input_dir = r'model_beta/model_beta/input_folder'
+        self.input_image_dir = r"model_beta/model_beta/input_image"
+        self.output_dir = r'model_beta/model_beta/output_folder'
+        self.detected_frame_dir = r'model_beta/model_beta/detected_frame_folder'
+        self.detect_model_path = r"model_beta/model_train/yolov8n-face.pt"
         self.target_img_path = None
         self.number_camera = 2
 
         self.current_camera = 0
 
         # Khởi tạo các mô hình nhận diện và phát hiện
-        self.face_detector = YuNet(modelPath=r'model_train/yunet.onnx',
+        self.face_detector = YuNet(modelPath=r'model_beta/model_train/yunet.onnx',
                                    inputSize=[320, 320],
                                    confThreshold=0.8,
                                    nmsThreshold=0.3,
@@ -55,7 +55,7 @@ class MainWindow(QWidget):
                                    backendId=cv2.dnn.DNN_BACKEND_OPENCV,
                                    targetId=cv2.dnn.DNN_TARGET_CPU)
 
-        self.face_recognizer = SFace(modelPath=r'model_train/reg.onnx',
+        self.face_recognizer = SFace(modelPath=r'model_beta/model_train/reg.onnx',
                                      disType=0,
                                      backendId=cv2.dnn.DNN_BACKEND_OPENCV,
                                      targetId=cv2.dnn.DNN_TARGET_CPU)
@@ -71,7 +71,7 @@ class MainWindow(QWidget):
 
         self.detect_model_instance = list()
         for i in range(self.number_camera):
-            self.detect_model_instance.append(detect_Model(self.detect_model_path, device="cuda"))
+            self.detect_model_instance.append(detect_Model(self.detect_model_path, device="cpu"))
 
         self.dict_id_images = list()
         for i in range(self.number_camera):
@@ -180,13 +180,13 @@ class MainWindow(QWidget):
 
         # Khởi động các video
         self.video_caps = [
-            cv2.VideoCapture('video_test/video.mp4'),
-            cv2.VideoCapture('video_test/video_1.mp4')
+            cv2.VideoCapture('model_beta/video_test/video.mp4'),
+            cv2.VideoCapture('model_beta/video_test/vi2.mp4')
         ]
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_frames)
-        self.timer.start(30)
+        self.timer.start(1500)
 
         self.camera_box.activated.connect(self.change_camera)
 
@@ -206,9 +206,9 @@ class MainWindow(QWidget):
 
         if self.target_img_path:
 
-            image = cv2.imread(file_name)
+            image = cv2.imread(self.target_img_path)
 
-            recognite_image(image)
+            self.recognite_image(image)
         
 
     def update_frames(self):
@@ -218,7 +218,7 @@ class MainWindow(QWidget):
         for i in range(self.number_camera):
             ret, frame = self.video_caps[i].read()
 
-            if ret and (i == self.current_camera):
+            if ret:
                 # Phát hiện khuôn mặt trên video
                 detected_frame, self.dict_id_images[i], self.count_dict[i] = detect_Frame(self.detect_model_instance[i], frame, self.dict_id_images[i], self.count_dict[i], self.resnet, self.input_dir,
                                               self.detected_frame_dir, i, self.count_video_frame[i])
@@ -270,7 +270,6 @@ class MainWindow(QWidget):
                 'ffmpeg',  # Gọi FFmpeg trực tiếp
                 '-y',  # Ghi đè file nếu đã tồn tại
                 '-framerate', str(fps),  # Đặt FPS
-                '-start_number', str(start_number),  # Bắt đầu từ số frame hiện tại
                 '-i', os.path.join(detected_frame_dir, '%06d.png'),  # Đầu vào các frame (.png với định dạng 000000.png)
                 '-c:v', 'libx264',  # Codec video
                 '-pix_fmt', 'yuv420p',  # Định dạng màu
@@ -386,7 +385,7 @@ class MainWindow(QWidget):
 
             image = cv2.imread(file_name)
 
-            recognite_image(image)
+            self.recognite_image(image)
 
     def recognite_image(self, image):
         # Thực hiện recognize
