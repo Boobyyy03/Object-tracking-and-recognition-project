@@ -253,24 +253,27 @@ class MainWindow(QWidget):
             os.makedirs(segment_dir, exist_ok=True)
             segment_file = os.path.join(segment_dir, f"segment_{int(time.time())}.mp4")
 
-            # Kiểm tra xem thư mục detected_frame_dir có các frame không
+            # Đường dẫn đến thư mục chứa các frame
             detected_frame_dir = os.path.join(self.detected_frame_dir, str(cam_id))
 
-            # In ra toàn bộ các file có trong thư mục
-            all_files = os.listdir(detected_frame_dir)
+            # Lọc các file có đuôi .png và bắt đầu bằng 6 chữ số
+            frame_files = sorted([f for f in os.listdir(detected_frame_dir) 
+                                if f.endswith('.png') and f[:6].isdigit()])
 
-            # Lọc các file có đuôi .png
-            frame_files = sorted([f for f in all_files if f.endswith('.png')])
+            # Kiểm tra xem có frame nào không
+            if not frame_files:
+                print("Không có frame nào để tạo segment.")
+                return
 
-            # Lấy số frame bắt đầu
-            start_number = int(frame_files[0].split('.')[0])
+            # Tạo danh sách các đường dẫn đến file frame
+            frame_paths = [os.path.join(detected_frame_dir, f) for f in frame_files]
 
-            # Thiết lập lệnh FFmpeg để tạo video từ file PNG, sử dụng tùy chọn start_number
+            # Thiết lập lệnh FFmpeg để tạo video từ file PNG
             ffmpeg_cmd = [
                 'ffmpeg',  # Gọi FFmpeg trực tiếp
                 '-y',  # Ghi đè file nếu đã tồn tại
                 '-framerate', str(fps),  # Đặt FPS
-                '-i', os.path.join(detected_frame_dir, '%06d.png'),  # Đầu vào các frame (.png với định dạng 000000.png)
+                '-i', 'concat:' + '|'.join(frame_paths),  # Đầu vào các frame
                 '-c:v', 'libx264',  # Codec video
                 '-pix_fmt', 'yuv420p',  # Định dạng màu
                 segment_file  # Đầu ra video
