@@ -41,6 +41,7 @@ class MainWindow(QWidget):
         self.output_dir = r'model_beta/output_folder'
         self.detected_frame_dir = r'model_beta/detected_frame_folder'
         self.detect_model_path = r"model_train/yolov8n-face.pt"
+        self.target_img_path = None
         self.number_camera = 2
 
         self.current_camera = 0
@@ -75,6 +76,11 @@ class MainWindow(QWidget):
         self.dict_id_images = list()
         for i in range(self.number_camera):
             self.dict_id_images.append(dict())
+
+        for i in range(self.number_camera):
+            fileo = open(os.path.join(self.input_dir, str(i) + ".txt"), "w")
+            fileo.close()
+
 
         # Đảm bảo các thư mục đầu vào và đầu ra tồn tại
         if not os.path.exists(self.input_dir):
@@ -196,7 +202,14 @@ class MainWindow(QWidget):
 
     def change_camera(self, index):
         self.current_camera = int(index)
-        print(index)
+        print(self.current_camera)
+
+        if self.target_img_path:
+
+            image = cv2.imread(file_name)
+
+            recognite_image(image)
+        
 
     def update_frames(self):
         ret_all = set()
@@ -373,40 +386,43 @@ class MainWindow(QWidget):
 
             image = cv2.imread(file_name)
 
-            # Thực hiện recognize
-            process_Images(self.input_dir, self.target_img_path, self.face_detector, self.face_recognizer, self.output_dir)
+            recognite_image(image)
 
-            # Scale và hiện ảnh tải lên
-            self.display_scaled_image(self.upload_label, image)
+    def recognite_image(self, image):
+        # Thực hiện recognize
+        process_Images(self.input_dir, self.target_img_path, self.face_detector, self.face_recognizer, self.output_dir)
 
-            # Lấy tên file của input_image hoặc target_img_path để khớp với folder trong cam folder
-            input_image_name = os.path.basename(self.target_img_path).split('.')[
-                0]  # Ex: "target_img_path.jpg" -> "target_img_path"
-            print(input_image_name)
+        # Scale và hiện ảnh tải lên
+        self.display_scaled_image(self.upload_label, image)
 
-            # Iterate through each camera folder in output_folder
-            for cam_id in range(self.number_camera):
-                cam_folder = os.path.join(self.output_dir,
-                                          f"{cam_id}")  # Ensure 'cam_' prefix matches your folder structure
+        # Lấy tên file của input_image hoặc target_img_path để khớp với folder trong cam folder
+        input_image_name = os.path.basename(self.target_img_path).split('.')[
+            0]  # Ex: "target_img_path.jpg" -> "target_img_path"
+        print(input_image_name)
 
-                # Check if a folder with the input image name exists inside the camera folder
-                img_folder = os.path.join(cam_folder, input_image_name)
-                if os.path.exists(img_folder):
-                    # Load images from the folder
-                    result_images = sorted([os.path.join(img_folder, img) for img in os.listdir(img_folder)
-                                            if img.endswith(('.jpg', '.png', '.jpeg', '.bmp'))])
+        # Iterate through each camera folder in output_folder
+        for cam_id in range(self.number_camera):
+            cam_folder = os.path.join(self.output_dir,
+                                      f"{cam_id}")  # Ensure 'cam_' prefix matches your folder structure
 
-                    # Display results in the respective result labels
-                    if cam_id == 0 and len(result_images) > 0:
-                        result_image_1 = cv2.imread(result_images[0])
-                        self.display_scaled_image(self.result_labels[0], result_image_1)
-                        confScore = result_images[0].split("_")[-1].split(".")[0]
-                        self.display_box_text(cam_id, confScore)
-                    if cam_id == 1 and len(result_images) > 0:
-                        result_image_2 = cv2.imread(result_images[0])  # Assuming the first image in cam_1 folder
-                        self.display_scaled_image(self.result_labels[1], result_image_2)
-                        confScore = result_images[0].split("_")[-1].split(".")[0]
-                        self.display_box_text(cam_id, confScore)
+            # Check if a folder with the input image name exists inside the camera folder
+            img_folder = os.path.join(cam_folder, input_image_name)
+            if os.path.exists(img_folder):
+                # Load images from the folder
+                result_images = sorted([os.path.join(img_folder, img) for img in os.listdir(img_folder)
+                                        if img.endswith(('.jpg', '.png', '.jpeg', '.bmp'))])
+
+                # Display results in the respective result labels
+                if cam_id == 0 and len(result_images) > 0:
+                    result_image_1 = cv2.imread(result_images[0])
+                    self.display_scaled_image(self.result_labels[0], result_image_1)
+                    confScore = result_images[0].split("_")[-1].split(".")[0]
+                    self.display_box_text(cam_id, confScore)
+                if cam_id == 1 and len(result_images) > 0:
+                    result_image_2 = cv2.imread(result_images[0])  # Assuming the first image in cam_1 folder
+                    self.display_scaled_image(self.result_labels[1], result_image_2)
+                    confScore = result_images[0].split("_")[-1].split(".")[0]
+                    self.display_box_text(cam_id, confScore)
 
     def display_scaled_image(self, label, image):
         """Scale the image to fit inside the QLabel and pad with black if necessary."""
