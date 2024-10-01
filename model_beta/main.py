@@ -193,12 +193,14 @@ class MainWindow(QWidget):
         self.target_img_path = None
         self.count_video_frame = [0] * 2
 
+
     def display_box_text(self,id_cam, score):
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         # for i in range(self.number_camera):
         # # Set the box text with the camera number and current date/time
         self.box_results[id_cam].setText(f"Camera {str(id_cam + 1)}\nTime: {current_time}\nConfidence: {score}")
+
 
     def change_camera(self, index):
         self.current_camera = int(index)
@@ -243,6 +245,7 @@ class MainWindow(QWidget):
         # If all videos have ended, stop the timer
         if len(ret_all) == len(self.video_caps):
             self.timer.stop()
+
 
     def create_segment(self, cam_id, frame_files):
         """Tạo một đoạn video segment từ danh sách frame sử dụng FFmpeg trực tiếp."""
@@ -334,11 +337,13 @@ class MainWindow(QWidget):
             except Exception as e:
                 print(f"Lỗi khi tạo segment: {e}")
 
+
     def update_m3u8_playlist(self, cam_id, segment_file):
         """Cập nhật file playlist M3U8."""
         playlist_path = os.path.join("model_beta", "segments", f"playlist_{cam_id}.m3u8")
         with open(playlist_path, 'a') as playlist:
             playlist.write(f"#EXTINF:10.0,\n{os.path.basename(segment_file)}\n")
+
 
     def display_frame(self, label, frame):
         """Display a frame in a QLabel."""
@@ -377,6 +382,7 @@ class MainWindow(QWidget):
         q_img = QImage(frame_rgb.data, layout_width, layout_height, step, QImage.Format_RGB888)
         label.setPixmap(QPixmap.fromImage(q_img))
 
+
     def upload_image(self):
         # Chọn ảnh từ máy tính
         options = QFileDialog.Options()
@@ -389,6 +395,7 @@ class MainWindow(QWidget):
             image = cv2.imread(file_name)
 
             self.recognite_image(image)
+
 
     def recognite_image(self, image):
         # Thực hiện recognize
@@ -425,6 +432,7 @@ class MainWindow(QWidget):
                     self.display_scaled_image(self.result_labels[1], result_image_2)
                     confScore = result_images[0].split("_")[-1].split(".")[0]
                     self.display_box_text(cam_id, confScore)
+
 
     def display_scaled_image(self, label, image):
         """Scale the image to fit inside the QLabel and pad with black if necessary."""
@@ -463,6 +471,7 @@ class MainWindow(QWidget):
         q_img = QImage(frame_rgb.data, layout_width, layout_height, step, QImage.Format_RGB888)
         label.setPixmap(QPixmap.fromImage(q_img))
 
+
     def closeEvent(self, event):
         """Dừng luồng khi đóng cửa sổ."""
         self.stop_thread = True
@@ -473,11 +482,13 @@ class MainWindow(QWidget):
             cap.release()
         cv2.destroyAllWindows()
 
+
     def change_to_camera(self, camera_id):
         """Chuyển đến camera chứa người được nhận diện."""
         self.current_camera = camera_id
         print(f"Chuyển đến Camera {camera_id + 1}")
         # Optional: Add code to update UI or refresh video display when the camera changes
+
 
     def extract_camera_id(self, filename):
         """Trích xuất ID camera từ tên tệp."""
@@ -485,6 +496,7 @@ class MainWindow(QWidget):
         if match:
             return int(match.group(1))
         return None
+
 
     def on_result_label_clicked(self, number, event):
         """Handle click on result_label to switch to corresponding camera."""
@@ -500,34 +512,31 @@ class MainWindow(QWidget):
         try:
             # Lấy hết đường dẫn ảnh trong file
             for i in range(self.number_camera):
-                detected_frame_dir = os.path.join(self.detected_frame_dir, str(i))
-                list_img = list()
-                for ii in os.listdir(detected_frame_dir):
-                    list_img.append(ii)
-                list_img.sort()
-                print(i)
+                if i == self.current_camera:
+                    detected_frame_dir = os.path.join(self.detected_frame_dir, str(i))
+                    list_img = list()
+                    for ii in os.listdir(detected_frame_dir):
+                        list_img.append(ii)
+                    list_img.sort()
 
-                # Lấy các thông số và tạo chỗ đạt file
-                cv2_fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                    # Lấy các thông số và tạo chỗ đạt file
+                    cv2_fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 
-                img = cv2.imread(os.path.join(detected_frame_dir, os.listdir(detected_frame_dir)[0]))
-                print(i)
+                    img = cv2.imread(os.path.join(detected_frame_dir, os.listdir(detected_frame_dir)[0]))
 
-                size = list(img.shape)
-                del size[2]
-                size.reverse()
-                print(i)
+                    size = list(img.shape)
+                    del size[2]
+                    size.reverse()
 
-                video = cv2.VideoWriter(os.path.join("model_beta", str(i) + ".mp4"), cv2_fourcc, fps, size)
-                print(i)
+                    video = cv2.VideoWriter(os.path.join("model_beta", str(i) + ".mp4"), cv2_fourcc, fps, size)
 
-                # Viết vào mp4
-                for ii in list_img:
-                    video.write(cv2.imread(os.path.join(detected_frame_dir, ii)))
-                video.release()
-                print(i)
+                    # Viết vào mp4
+                    for ii in list_img:
+                        video.write(cv2.imread(os.path.join(detected_frame_dir, ii)))
+                    video.release()
         except:
             print("Chưa có ảnh để tạo video")
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
