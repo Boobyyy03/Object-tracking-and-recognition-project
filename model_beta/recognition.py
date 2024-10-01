@@ -123,6 +123,7 @@ def get_top_3_ids(score_per_id):
 
     return top_3
 
+
 def detect_Face_Landmarks(img, face, mp_face_mesh):
     """
     Detect facial landmarks using Mediapipe Face Mesh and ensure sufficient landmarks are detected.
