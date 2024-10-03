@@ -618,6 +618,7 @@ def cleanup():
             except Exception as e:
                 print(f'Failed to delete {file_path}. Reason: {e}')
 
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = MainWindow()
