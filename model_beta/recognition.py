@@ -9,8 +9,6 @@ import shutil
 import torch as pt
 from torchvision import transforms
 
-
-
 def cos_similarity(a, b):
     cos_cal = pt.nn.CosineSimilarity(dim=1, eps=1e-10)
     return cos_cal(a, b)
