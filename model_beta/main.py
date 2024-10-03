@@ -186,12 +186,32 @@ class MainWindow(QWidget):
         self.target_img_path = None
         self.count_video_frame = [0] * 2
 
-    def display_box_text(self, id_cam, score):
-        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    def display_box_text(self, camera_id):
+        info_file_path = os.path.join(self.output_dir, "info_similar.txt")
 
-        # for i in range(self.number_camera):
-        # # Set the box text with the camera number and current date/time
-        self.box_results[id_cam].setText(f"Camera {str(id_cam + 1)}\nTime: {current_time}\nConfidence: {score}")
+        if os.path.exists(info_file_path):
+            with open(info_file_path, 'r') as f:
+                lines = f.readlines()
+
+            if camera_id < len(lines):
+                data = lines[camera_id].strip().split()
+
+                if len(data) == 11:
+                    # Extract necessary values
+                    year, month, day = data[3], data[4], data[5]
+                    hour, minute, second = data[6], data[7], data[8]
+
+                    tensor_value = float(data[9])*100 #.strip('tensor(, grad_fn=<SelectBackward0>)')
+
+                    #if tensor_value <= 0:
+                    #    tensor_value = 0
+
+                    tensor_value = str(tensor_value)
+
+                    timestamp = f"{year}-{month}-{day} {hour}:{minute}:{second}"
+
+                    self.box_results[camera_id].setText(
+                        f"Camera {camera_id + 1}\nTime: {timestamp}\nConfidence: {tensor_value}%")
 
     def change_camera(self, index):
         self.current_camera = int(index)
@@ -222,9 +242,6 @@ class MainWindow(QWidget):
                 camera_dir = os.path.join(self.detected_frame_dir, str(i))
                 if not os.path.exists(camera_dir):
                     os.makedirs(camera_dir)
-
-                # # Lưu frame đã phát hiện khuôn mặt vào thư mục phụ
-                # cv2.imwrite(os.path.join(camera_dir, f"frame_{self.count_video_frame[i]}.jpg"), frame)
 
                 self.count_video_frame[i] += 1
 
@@ -391,34 +408,18 @@ class MainWindow(QWidget):
         # Scale và hiện ảnh tải lên
         self.display_scaled_image(self.upload_label, image)
 
+        result_images = sorted([os.path.join(self.output_dir, img) for img in os.listdir(self.output_dir)
+                                if img.endswith(('.jpg', '.png', '.jpeg', '.bmp'))])
+        pic = []
+
+        for i in range(self.number_camera):
+            pic.append(cv2.imread(result_images[i]))
+            self.display_scaled_image(self.result_labels[i], pic[i])
+            print("ok")
+            self.display_box_text(i)
+            print("not ok")
+
         # Lấy tên file của input_image hoặc target_img_path để khớp với folder trong cam folder
-        input_image_name = os.path.basename(self.target_img_path).split('.')[
-            0]  # Ex: "target_img_path.jpg" -> "target_img_path"
-        print(input_image_name)
-
-        # Iterate through each camera folder in output_folder
-        for cam_id in range(self.number_camera):
-            cam_folder = os.path.join(self.output_dir,
-                                      f"{cam_id}")  # Ensure 'cam_' prefix matches your folder structure
-
-            # Check if a folder with the input image name exists inside the camera folder
-            img_folder = os.path.join(cam_folder, input_image_name)
-            if os.path.exists(img_folder):
-                # Load images from the folder
-                result_images = sorted([os.path.join(img_folder, img) for img in os.listdir(img_folder)
-                                        if img.endswith(('.jpg', '.png', '.jpeg', '.bmp'))])
-
-                # Display results in the respective result labels
-                if cam_id == 0 and len(result_images) > 0:
-                    result_image_1 = cv2.imread(result_images[0])
-                    self.display_scaled_image(self.result_labels[0], result_image_1)
-                    confScore = result_images[0].split("_")[-1].split(".")[0]
-                    self.display_box_text(cam_id, confScore)
-                if cam_id == 1 and len(result_images) > 0:
-                    result_image_2 = cv2.imread(result_images[0])  # Assuming the first image in cam_1 folder
-                    self.display_scaled_image(self.result_labels[1], result_image_2)
-                    confScore = result_images[0].split("_")[-1].split(".")[0]
-                    self.display_box_text(cam_id, confScore)
 
     def display_scaled_image(self, label, image):
         """Scale the image to fit inside the QLabel and pad with black if necessary."""

@@ -59,55 +59,6 @@ def detect_Frame(detect_model, frame, dict_id_image, count_dict, resnet, link_ou
 
         id_show = id
 
-        '''if len(dict_id_image) < 2:
-            dict_id_image[id] = [[id], face_now, face_now, face_now, face_now]
-        else:
-            add_dict = 0
-            for case in range(1, len(dict_id_image)):
-                #print(dict_id_image[case][0])
-                if id in dict_id_image[case][0]:
-                    dict_id_image[case][2:4] = dict_id_image[case][3:]
-                    dict_id_image[case][4] = face_now
-                    id_show = case
-                    add_dict = 1
-                    break
-                else:
-                    if count_dict < id:
-                        count_dict = id
-                        image_pt_1 = pt.zeros((1, 3, shape_face_now, shape_face_now))
-                        image_pt_2 = pt.zeros((1, 3, shape_face_now, shape_face_now))
-                        image_pt_3 = pt.zeros((1, 3, shape_face_now, shape_face_now))
-                        image_pt_4 = pt.zeros((1, 3, shape_face_now, shape_face_now))
-                        image_pt = pt.zeros((1, 3, shape_face_now, shape_face_now))
-
-                        for i in range(3):
-                            image_pt_1[0, i] = pt.tensor(dict_id_image[case][1][:,:,2-i])
-                            image_pt_2[0, i] = pt.tensor(dict_id_image[case][2][:,:,2-i])
-                            image_pt_3[0, i] = pt.tensor(dict_id_image[case][3][:,:,2-i])
-                            image_pt_4[0, i] = pt.tensor(dict_id_image[case][4][:,:,2-i])
-                            image_pt[0, i] = pt.tensor(face_now[:,:,2-i])
-
-                        image_pt_1 = resnet(image_pt_1)
-                        image_pt_2 = resnet(image_pt_2)
-                        image_pt_3 = resnet(image_pt_3)
-                        image_pt_4 = resnet(image_pt_4)
-                        image_pt = resnet(image_pt)
-
-                        mean_similarity = (cos_similarity(image_pt, image_pt_1) + cos_similarity(image_pt, image_pt_2) + cos_similarity(image_pt, image_pt_3) + cos_similarity(image_pt, image_pt_4))/4
-
-                        if mean_similarity > 0.93:
-                            dict_id_image[case][0].append(id)
-                            dict_id_image[case][2:4] = dict_id_image[case][3:]
-                            dict_id_image[case][4] = face_now
-                            id_show = case
-                            add_dict = 1
-                            break
-                        else:
-                            continue
-            if add_dict == 0:
-                id_show = len(dict_id_image) + 1
-                dict_id_image[len(dict_id_image) + 1] = [[id], face_now, face_now]'''
-
         if co < conf_threshold:
             continue
 
