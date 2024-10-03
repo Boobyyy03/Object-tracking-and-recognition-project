@@ -7,14 +7,10 @@ import subprocess
 # import imageio_ffmpeg as ffmpeg
 import threading
 import time
-# Các import liên quan đến phát hiện và nhận diện khuôn mặt
-from yunet import YuNet
-from sface import SFace
-from detect import *
-from input_image_process import *
-from recognition import *
+
 import shutil
-from PyQt5.QtWidgets import QApplication, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QFileDialog, QGridLayout, QComboBox
+from PyQt5.QtWidgets import QApplication, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QFileDialog, \
+    QGridLayout, QComboBox
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import QTimer
 import cv2
@@ -25,10 +21,13 @@ import torch
 from yunet import YuNet
 from sface import SFace
 from detect import *
-from input_image_process import *
+# from input_image_process import *
 from recognition import *
 from datetime import datetime
 from facenet_pytorch import InceptionResnetV1
+
+from collections import *
+
 
 
 class MainWindow(QWidget):
@@ -41,6 +40,7 @@ class MainWindow(QWidget):
         self.output_dir = r'model_beta/model_beta/output_folder'
         self.detected_frame_dir = r'model_beta/model_beta/detected_frame_folder'
         self.detect_model_path = r"model_beta/model_train/yolov8n-face.pt"
+        self.segments_dir = r'model_beta/segments'
         self.target_img_path = None
         self.number_camera = 2
 
@@ -52,7 +52,7 @@ class MainWindow(QWidget):
                                    confThreshold=0.8,
                                    nmsThreshold=0.3,
                                    topK=5000,
-                                   backendId=cv2.dnn.DNN_BACKEND_OPENCV,
+                                   backendId=cv2.dnn.DNN_BACKEND_DEFAULT,
                                    targetId=cv2.dnn.DNN_TARGET_CPU)
 
         self.face_recognizer = SFace(modelPath=r'model_beta/model_train/reg.onnx',
@@ -60,14 +60,11 @@ class MainWindow(QWidget):
                                      backendId=cv2.dnn.DNN_BACKEND_OPENCV,
                                      targetId=cv2.dnn.DNN_TARGET_CPU)
 
-
-        self.resnet = InceptionResnetV1(pretrained='vggface2').eval()
-
+        self.resnet = InceptionResnetV1(pretrained='vggface2', device="cpu").eval()
 
         self.count_dict = list()
         for i in range(self.number_camera):
             self.count_dict.append(0)
-
 
         self.detect_model_instance = list()
         for i in range(self.number_camera):
@@ -81,6 +78,8 @@ class MainWindow(QWidget):
             fileo = open(os.path.join(self.input_dir, str(i) + ".txt"), "w")
             fileo.close()
 
+        #fileo = open(os.path.join(self.output_dir, "info_similar.txt"), "w")
+        #fileo.close()
 
         # Đảm bảo các thư mục đầu vào và đầu ra tồn tại
         if not os.path.exists(self.input_dir):
@@ -129,8 +128,6 @@ class MainWindow(QWidget):
             result_label.setFixedSize(200, 200)
             self.result_labels.append(result_label)
 
-
-
         right_layout.addWidget(self.btn_upload)
         right_layout.addWidget(self.upload_label)
         for i in range(self.number_camera):
@@ -138,10 +135,8 @@ class MainWindow(QWidget):
 
         right_layout.addWidget(self.btn_mp4)
 
-
         for i in range(self.number_camera):
             self.result_labels[i].mousePressEvent = partial(self.on_result_label_clicked, i)
-
 
         box_layout = QVBoxLayout()
 
@@ -164,7 +159,7 @@ class MainWindow(QWidget):
             box_result.setStyleSheet("border:2px solid black")
             self.box_results.append(box_result)
             box_layout.addWidget(self.box_results[i])
-
+            self.box_results[i].setLayout(QVBoxLayout())  # Set a layout for each box_result
 
         box_blank2 = QLabel("")
         box_blank2.setFixedSize(200, 20)
@@ -180,58 +175,124 @@ class MainWindow(QWidget):
 
         # Khởi động các video
         self.video_caps = [
-            cv2.VideoCapture('model_beta/video_test/video.mp4'),
-            cv2.VideoCapture('model_beta/video_test/vi2.mp4')
+            cv2.VideoCapture('model_beta/video_test/vi2.mp4'),
+            cv2.VideoCapture('model_beta/video_test/video.mp4')
         ]
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_frames)
-        self.timer.start(1500)
+        self.timer.start(2000)
 
         self.camera_box.activated.connect(self.change_camera)
 
         self.target_img_path = None
         self.count_video_frame = [0] * 2
 
+    def display_box_text(self, camera_id):
+        info_file_path = os.path.join(self.output_dir, "info_similar.txt")
 
-    def display_box_text(self,id_cam, score):
-        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if os.path.exists(info_file_path):
+            with open(info_file_path, 'r') as f:
+                lines = f.readlines()
 
-        # for i in range(self.number_camera):
-        # # Set the box text with the camera number and current date/time
-        self.box_results[id_cam].setText(f"Camera {str(id_cam + 1)}\nTime: {current_time}\nConfidence: {score}")
+            if camera_id < len(lines):
+                data = lines[camera_id].strip().split()
 
+                if len(data) == 10:
+                    # Extract necessary values
+                    year, month, day = data[3], data[4], data[5]
+                    hour, minute, second = data[6], data[7], data[8]
+
+                    tensor_value = float(data[9])*100 #.strip('tensor(, grad_fn=<SelectBackward0>)')
+                    print(tensor_value)
+                    #if tensor_value <= 0:
+                    #    tensor_value = 0
+
+                    tensor_value = str(tensor_value)
+
+                    timestamp = f"{year}-{month}-{day} {hour}:{minute}:{second}"
+
+                    self.box_results[camera_id].setText(
+                        f"Camera {camera_id + 1}\nTime: {timestamp}\nConfidence: {tensor_value}%")
+                    
+        #Từ timestamp đã được lấy trong file txt, tìm segment gần nhất bằng hàm get_closest_segments rồi
+        #Thêm một nút để mở segment đó bằng opencv vào một window khác
+        self.btn_open_segment = QPushButton("Mở segment")
+        self.btn_open_segment.clicked.connect(partial(self.open_segment, camera_id))
+        self.box_results[camera_id].layout().addWidget(self.btn_open_segment)
+
+    def open_segment(self, camera_id):
+        # Lấy thời gian từ file info_similar.txt
+        info_file_path = os.path.join(self.output_dir, "info_similar.txt")
+
+        if os.path.exists(info_file_path):
+            with open(info_file_path, 'r') as f:
+                lines = f.readlines()
+                print(lines)
+            if camera_id < len(lines):
+                data = lines[camera_id].strip().split()
+
+                if len(data) == 10:
+                    year, month, day = data[3], data[4], data[5]
+                    hour, minute, second = data[6], data[7], data[8]
+
+                    timestamp = f"{year}-{month}-{day} {hour}:{minute}:{second}"
+                    time = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
+                    # Lấy segment gần nhất
+                    segment_file = self.get_closest_segments(camera_id, time)
+                    if segment_file:
+                        segment_path = os.path.join(self.segments_dir, str(camera_id), segment_file)
+                        if os.path.exists(segment_path):
+                            print(f"Mở segment: {segment_path}")
+                            # Mở segment bằng OpenCV
+                            cap = cv2.VideoCapture(segment_path)
+                            while cap.isOpened():
+                                ret, frame = cap.read()
+                                if not ret:
+                                    break
+                                cv2.imshow("Segment", frame)
+                                if cv2.waitKey(1) & 0xFF == ord('q'):
+                                    break
+                            cap.release()
+                            cv2.destroyAllWindows()
+                        else:
+                            print(f"Không tìm thấy segment: {segment_path}")
+                    else:
+                        print(f"Không tìm thấy segment gần nhất cho camera {camera_id}")
+                else:
+                    print(f"Không đủ thông tin để mở segment cho camera {camera_id}")
+            else:
+                print(f"Không tìm thấy thông tin cho camera {camera_id}")
 
     def change_camera(self, index):
         self.current_camera = int(index)
         print(self.current_camera)
 
         if self.target_img_path:
-
             image = cv2.imread(self.target_img_path)
 
             self.recognite_image(image)
-        
 
     def update_frames(self):
         ret_all = set()
-        
+
         # Loop through each video label and corresponding video capture
         for i in range(self.number_camera):
             ret, frame = self.video_caps[i].read()
 
             if ret:
                 # Phát hiện khuôn mặt trên video
-                detected_frame, self.dict_id_images[i], self.count_dict[i] = detect_Frame(self.detect_model_instance[i], frame, self.dict_id_images[i], self.count_dict[i], self.resnet, self.input_dir,
-                                              self.detected_frame_dir, i, self.count_video_frame[i])
+                detected_frame, self.dict_id_images[i], self.count_dict[i] = detect_Frame(self.detect_model_instance[i],
+                                                                                          frame, self.dict_id_images[i],
+                                                                                          self.count_dict[i],
+                                                                                          self.resnet, self.input_dir,
+                                                                                          self.detected_frame_dir, i,
+                                                                                          self.count_video_frame[i])
 
                 # Tạo thư mục phụ theo id camera nếu chưa tồn tại
                 camera_dir = os.path.join(self.detected_frame_dir, str(i))
                 if not os.path.exists(camera_dir):
                     os.makedirs(camera_dir)
-
-                # # Lưu frame đã phát hiện khuôn mặt vào thư mục phụ
-                # cv2.imwrite(os.path.join(camera_dir, f"frame_{self.count_video_frame[i]}.jpg"), frame)
 
                 self.count_video_frame[i] += 1
 
@@ -246,6 +307,35 @@ class MainWindow(QWidget):
         if len(ret_all) == len(self.video_caps):
             self.timer.stop()
 
+    def get_closest_segments(self,id_cam, time):
+        """Lấy segment gần nhất từ thời gian cho trước."""
+        segment_dir = os.path.join(self.segments_dir, str(id_cam))
+        if not os.path.exists(segment_dir):
+            print(f"Thư mục {segment_dir} không tồn tại.")
+            return
+
+        all_files = os.listdir(segment_dir)
+
+        segment_files = [f for f in all_files if f.endswith('.mp4')]
+        if not segment_files:
+            print(f"Không có file segment nào trong thư mục {segment_dir}")
+            return
+
+        closest_segment = None
+        smallest_diff = 30 # Giả sử là 30 giây
+
+        for segment_file in segment_files:
+            '''Tách thời gian từ tên file segment rồi tìm khoảng cách thời gian nhỏ nhất'''
+            datetime_segment = '_'.join(segment_file.split('_')[1:7])
+            datetime_segment = datetime_segment.replace('.mp4', '')
+            time_segment = datetime.strptime(datetime_segment, "%Y_%m_%d_%H_%M_%S")
+            diff = abs((time_segment - time).total_seconds())
+            if diff < smallest_diff:
+                smallest_diff = diff
+                closest_segment = segment_file
+
+        return closest_segment
+
 
     def create_segment(self, cam_id, frame_files):
         """Tạo một đoạn video segment từ danh sách frame sử dụng FFmpeg trực tiếp."""
@@ -254,7 +344,10 @@ class MainWindow(QWidget):
             # Đường dẫn để lưu segment
             segment_dir = os.path.join("model_beta", "segments", str(cam_id))
             os.makedirs(segment_dir, exist_ok=True)
-            segment_file = os.path.join(segment_dir, f"segment_{int(time.time())}.mp4")
+
+            # Lấy thời gian từ frame đầu tiên
+            first_frame_time = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+            segment_file = os.path.join(segment_dir, f"segment_{first_frame_time}.mp4")
 
             # Đường dẫn đến thư mục chứa các frame
             detected_frame_dir = os.path.join(self.detected_frame_dir, str(cam_id))
@@ -344,7 +437,6 @@ class MainWindow(QWidget):
         with open(playlist_path, 'a') as playlist:
             playlist.write(f"#EXTINF:10.0,\n{os.path.basename(segment_file)}\n")
 
-
     def display_frame(self, label, frame):
         """Display a frame in a QLabel."""
         height, width, channel = frame.shape
@@ -382,7 +474,6 @@ class MainWindow(QWidget):
         q_img = QImage(frame_rgb.data, layout_width, layout_height, step, QImage.Format_RGB888)
         label.setPixmap(QPixmap.fromImage(q_img))
 
-
     def upload_image(self):
         # Chọn ảnh từ máy tính
         options = QFileDialog.Options()
@@ -396,43 +487,25 @@ class MainWindow(QWidget):
 
             self.recognite_image(image)
 
-
     def recognite_image(self, image):
         # Thực hiện recognize
-        process_Images(self.input_dir, self.target_img_path, self.face_detector, self.face_recognizer, self.output_dir)
+        process_Images(self.number_camera, self.resnet, self.input_dir, self.target_img_path, self.face_detector, self.output_dir)
 
         # Scale và hiện ảnh tải lên
         self.display_scaled_image(self.upload_label, image)
 
+        result_images = sorted([os.path.join(self.output_dir, img) for img in os.listdir(self.output_dir)
+                                if img.endswith(('.jpg', '.png', '.jpeg', '.bmp'))])
+        pic = []
+
+        for i in range(self.number_camera):
+            pic.append(cv2.imread(result_images[i]))
+            self.display_scaled_image(self.result_labels[i], pic[i])
+            # print("ok")
+            self.display_box_text(i)
+            # print("not ok")
+
         # Lấy tên file của input_image hoặc target_img_path để khớp với folder trong cam folder
-        input_image_name = os.path.basename(self.target_img_path).split('.')[
-            0]  # Ex: "target_img_path.jpg" -> "target_img_path"
-        print(input_image_name)
-
-        # Iterate through each camera folder in output_folder
-        for cam_id in range(self.number_camera):
-            cam_folder = os.path.join(self.output_dir,
-                                      f"{cam_id}")  # Ensure 'cam_' prefix matches your folder structure
-
-            # Check if a folder with the input image name exists inside the camera folder
-            img_folder = os.path.join(cam_folder, input_image_name)
-            if os.path.exists(img_folder):
-                # Load images from the folder
-                result_images = sorted([os.path.join(img_folder, img) for img in os.listdir(img_folder)
-                                        if img.endswith(('.jpg', '.png', '.jpeg', '.bmp'))])
-
-                # Display results in the respective result labels
-                if cam_id == 0 and len(result_images) > 0:
-                    result_image_1 = cv2.imread(result_images[0])
-                    self.display_scaled_image(self.result_labels[0], result_image_1)
-                    confScore = result_images[0].split("_")[-1].split(".")[0]
-                    self.display_box_text(cam_id, confScore)
-                if cam_id == 1 and len(result_images) > 0:
-                    result_image_2 = cv2.imread(result_images[0])  # Assuming the first image in cam_1 folder
-                    self.display_scaled_image(self.result_labels[1], result_image_2)
-                    confScore = result_images[0].split("_")[-1].split(".")[0]
-                    self.display_box_text(cam_id, confScore)
-
 
     def display_scaled_image(self, label, image):
         """Scale the image to fit inside the QLabel and pad with black if necessary."""
@@ -471,7 +544,6 @@ class MainWindow(QWidget):
         q_img = QImage(frame_rgb.data, layout_width, layout_height, step, QImage.Format_RGB888)
         label.setPixmap(QPixmap.fromImage(q_img))
 
-
     def closeEvent(self, event):
         """Dừng luồng khi đóng cửa sổ."""
         self.stop_thread = True
@@ -482,13 +554,11 @@ class MainWindow(QWidget):
             cap.release()
         cv2.destroyAllWindows()
 
-
     def change_to_camera(self, camera_id):
         """Chuyển đến camera chứa người được nhận diện."""
         self.current_camera = camera_id
         print(f"Chuyển đến Camera {camera_id + 1}")
         # Optional: Add code to update UI or refresh video display when the camera changes
-
 
     def extract_camera_id(self, filename):
         """Trích xuất ID camera từ tên tệp."""
@@ -497,7 +567,6 @@ class MainWindow(QWidget):
             return int(match.group(1))
         return None
 
-
     def on_result_label_clicked(self, number, event):
         """Handle click on result_label to switch to corresponding camera."""
         if self.result_labels[number].pixmap() is not None:
@@ -505,7 +574,6 @@ class MainWindow(QWidget):
             self.change_to_camera(camera_id)
         else:
             print(f"No image in result_label_{number + 1}")
-
 
     def make_Mp4(self):
         fps = 24
@@ -538,9 +606,22 @@ class MainWindow(QWidget):
             print("Chưa có ảnh để tạo video")
 
 
+def cleanup():
+    if os.path.exists(window.input_dir):
+        for filename in os.listdir(window.input_dir):
+            file_path = os.path.join(window.input_dir, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print(f'Failed to delete {file_path}. Reason: {e}')
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = MainWindow()
     window.setWindowTitle("Giao diện xử lý ảnh và video")
     window.show()
+    app.aboutToQuit.connect(cleanup)
     sys.exit(app.exec_())
