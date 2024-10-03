@@ -5,7 +5,7 @@
 # Third party copyrights are property of their respective owners.
 
 from itertools import product
-
+import torch
 import numpy as np
 import cv2 as cv
 
@@ -53,3 +53,17 @@ class YuNet:
         # Forward
         faces = self._model.detect(image)
         return np.empty(shape=(0, 5)) if faces[1] is None else faces[1]
+    '''
+    def infer(self, image):
+        faces = self._model.detect(image)
+        
+        if faces[1] is None:
+            face_data = np.empty(shape=(0, 5))
+        else:
+            face_data = faces[1]  # Dữ liệu khuôn mặt
+        
+        # Chuyển đổi 
+        face_tensor = torch.tensor(face_data)
+        
+        return face_tensor  
+    '''
