@@ -41,7 +41,9 @@ def process_Images(number_camera, resnet, input_dir, target_img_path, model_face
     for i in range(number_camera):
 
         tensor_open = pt.load(os.path.join(input_dir, str(i) + ".pt"))
-        tensor_open_now = tensor_open.to(device="cpu")
+
+        tensor_open_now = tensor_open.to(device="cuda")
+
         with open(os.path.join(input_dir, str(i) + ".txt")) as i_o:
             info_open = [line.rstrip() for line in i_o]
 
@@ -50,7 +52,9 @@ def process_Images(number_camera, resnet, input_dir, target_img_path, model_face
 
         feature_target = transform(cv2.resize(target_img, (shape_face[1], shape_face[0])))
         feature_target = feature_target[None, :, :, :]
-        feature_target = feature_target.to(device="cpu")
+
+        feature_target = feature_target.to(device="cuda")
+
         feature_target = resnet(feature_target)
 
         cos_values = cos_similarity(feature_faces, feature_target)
@@ -84,7 +88,9 @@ def process_Images(number_camera, resnet, input_dir, target_img_path, model_face
             img_now[:,:,channel] = img[channel, :, :]
 
 
-        score = cos_values[face_most_similar].detach().item()
+
+        score = cos_values[face_most_similar].numpy()[0]
+
 
         cv2.imwrite(os.path.join(output_dir, str(i) + ".png"), np.rint(img_now*255))
         file_open.write(info_open[face_most_similar] + " " + str(score) + "\n")
