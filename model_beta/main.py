@@ -238,25 +238,26 @@ class MainWindow(QWidget):
 
                     timestamp = f"{year}-{month}-{day} {hour}:{minute}:{second}"
                     time = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
-                    # Lấy segment gần nhất
-                    segment_file = self.get_closest_segments(camera_id, time)
-                    if segment_file:
-                        segment_path = os.path.join(self.segments_dir, str(camera_id), segment_file)
-                        if os.path.exists(segment_path):
-                            print(f"Mở segment: {segment_path}")
-                            # Mở segment bằng OpenCV
-                            cap = cv2.VideoCapture(segment_path)
-                            while cap.isOpened():
-                                ret, frame = cap.read()
-                                if not ret:
-                                    break
-                                cv2.imshow("Segment", frame)
-                                if cv2.waitKey(1) & 0xFF == ord('q'):
-                                    break
-                            cap.release()
-                            cv2.destroyAllWindows()
-                        else:
-                            print(f"Không tìm thấy segment: {segment_path}")
+                    # Lấy các segment gần nhất
+                    segment_files = self.get_closest_segments(camera_id, time)
+                    if segment_files:
+                        for segment_file in segment_files:
+                            segment_path = os.path.join(self.segments_dir, str(camera_id), segment_file)
+                            if os.path.exists(segment_path):
+                                print(f"Mở segment: {segment_path}")
+                                # Mở segment bằng OpenCV
+                                cap = cv2.VideoCapture(segment_path)
+                                while cap.isOpened():
+                                    ret, frame = cap.read()
+                                    if not ret:
+                                        break
+                                    cv2.imshow("Segment", frame)
+                                    if cv2.waitKey(1) & 0xFF == ord('q'):
+                                        break
+                                cap.release()
+                            else:
+                                print(f"Không tìm thấy segment: {segment_path}")
+                        cv2.destroyAllWindows()
                     else:
                         print(f"Không tìm thấy segment gần nhất cho camera {camera_id}")
                 else:
@@ -307,25 +308,24 @@ class MainWindow(QWidget):
         if len(ret_all) == len(self.video_caps):
             self.timer.stop()
 
-    def get_closest_segments(self,id_cam, time):
-        """Lấy segment gần nhất từ thời gian cho trước."""
+    def get_closest_segments(self, id_cam, time):
+        """Lấy segment gần nhất từ thời gian cho trước và các segment tiếp theo nếu có."""
         segment_dir = os.path.join(self.segments_dir, str(id_cam))
         if not os.path.exists(segment_dir):
             print(f"Thư mục {segment_dir} không tồn tại.")
-            return
+            return []
 
         all_files = os.listdir(segment_dir)
-
         segment_files = [f for f in all_files if f.endswith('.mp4')]
         if not segment_files:
             print(f"Không có file segment nào trong thư mục {segment_dir}")
-            return
+            return []
 
         closest_segment = None
-        smallest_diff = 30 # Giả sử là 30 giây
+        smallest_diff = float('inf')
 
         for segment_file in segment_files:
-            '''Tách thời gian từ tên file segment rồi tìm khoảng cách thời gian nhỏ nhất'''
+            # Tách thời gian từ tên file segment rồi tìm khoảng cách thời gian nhỏ nhất
             datetime_segment = '_'.join(segment_file.split('_')[1:7])
             datetime_segment = datetime_segment.replace('.mp4', '')
             time_segment = datetime.strptime(datetime_segment, "%Y_%m_%d_%H_%M_%S")
@@ -334,7 +334,14 @@ class MainWindow(QWidget):
                 smallest_diff = diff
                 closest_segment = segment_file
 
-        return closest_segment
+        if closest_segment is None:
+            return []
+
+        # Lấy các segment tiếp theo nếu có
+        closest_index = segment_files.index(closest_segment)
+        next_segments = segment_files[closest_index:closest_index + 3]  # Lấy tối đa 3 segment tiếp theo
+
+        return next_segments
 
 
     def create_segment(self, cam_id, frame_files):
