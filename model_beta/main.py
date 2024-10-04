@@ -217,9 +217,17 @@ class MainWindow(QWidget):
                     
         #Từ timestamp đã được lấy trong file txt, tìm segment gần nhất bằng hàm get_closest_segments rồi
         #Thêm một nút để mở segment đó bằng opencv vào một window khác
-        self.btn_open_segment = QPushButton("Mở segment")
-        self.btn_open_segment.clicked.connect(partial(self.open_segment, camera_id))
+        #kiểm tra xem đã có nút cho từng ô box text chưa, nếu chưa thì thêm vào
+        for i in range(self.number_camera):
+            if not any(isinstance(widget, QPushButton) for widget in self.box_results[i].children()):
+                self.add_open_segment_button(i)
+
+
+    def add_open_segment_button(self, camera_id):
+        self.btn_open_segment = QPushButton(f"Mở segment")
+        self.btn_open_segment.clicked.connect(lambda: self.open_segment(camera_id))
         self.box_results[camera_id].layout().addWidget(self.btn_open_segment)
+
 
     def open_segment(self, camera_id):
         # Lấy thời gian từ file info_similar.txt
@@ -346,7 +354,7 @@ class MainWindow(QWidget):
 
     def create_segment(self, cam_id, frame_files):
         """Tạo một đoạn video segment từ danh sách frame sử dụng FFmpeg trực tiếp."""
-        fps = 24  # Giả sử là 24 fps
+        fps = 12  # Giả sử là 24 fps
         try:
             # Đường dẫn để lưu segment
             segment_dir = os.path.join("model_beta", "segments", str(cam_id))
