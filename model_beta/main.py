@@ -203,12 +203,9 @@ class MainWindow(QWidget):
                     year, month, day = data[3], data[4], data[5]
                     hour, minute, second = data[6], data[7], data[8]
 
-                    tensor_value = float(data[9])*100 #.strip('tensor(, grad_fn=<SelectBackward0>)')
+                    tensor_value = float(data[9]) * 100
+                    tensor_value = round(tensor_value, 2)  # Round to 2 decimal places
                     print(tensor_value)
-                    #if tensor_value <= 0:
-                    #    tensor_value = 0
-
-                    tensor_value = str(tensor_value)
 
                     timestamp = f"{year}-{month}-{day} {hour}:{minute}:{second}"
 
@@ -217,9 +214,23 @@ class MainWindow(QWidget):
                     
         #Từ timestamp đã được lấy trong file txt, tìm segment gần nhất bằng hàm get_closest_segments rồi
         #Thêm một nút để mở segment đó bằng opencv vào một window khác
-        self.btn_open_segment = QPushButton("Mở segment")
-        self.btn_open_segment.clicked.connect(partial(self.open_segment, camera_id))
+        for i in range(self.number_camera):
+            if not any(isinstance(widget, QPushButton) for widget in self.box_results[i].children()):
+                self.add_open_segment_button(i)
+
+
+    def add_open_segment_button(self, camera_id):
+        self.btn_open_segment = QPushButton(f"Mở segment")
+        self.btn_open_segment.clicked.connect(lambda: self.open_segment(camera_id))
+        
+        # Add a spacer item to push the button lower in the layout
+        spacer = QLabel("")
+        spacer.setFixedSize(200, 50)  # Adjust the size as needed
+        spacer.setStyleSheet("background-color: transparent; border: none;")
+        self.box_results[camera_id].layout().addWidget(spacer)
+        
         self.box_results[camera_id].layout().addWidget(self.btn_open_segment)
+
 
     def open_segment(self, camera_id):
         # Lấy thời gian từ file info_similar.txt
