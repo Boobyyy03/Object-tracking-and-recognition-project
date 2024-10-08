@@ -35,6 +35,37 @@ def cos_similarity(a, b):
     return cos_cal(a, b)
 
 
+def adjust_image_gamma_lookuptable(image, threshold = 117, gamma_l = 0.5, gamma_h = 2):
+    # to YCrCb
+    img = cv2.cvtColor(image, cv2.COLOR_BGR2YCR_CB)
+    mean = np.mean(img[:,:,0])
+    if mean > (threshold + 20):
+        gamma = gamma_h
+    elif mean < threshold:
+        gamma = gamma_l
+    else:
+        gamma = 1.0
+    
+    # build a lookup table mapping the pixel values [0, 255] to
+    # their adjusted gamma values
+    table = np.array([((i / 255.0) ** gamma) * 255
+        for i in np.arange(0, 256)]).astype("uint8")
+
+    # apply gamma correction using the lookup table
+    img[:,:,0] = cv2.LUT(img[:,:,0], table)
+    
+    img = cv2.cvtColor(img, cv2.COLOR_YCR_CB2BGR)
+    return img
+
+
+def equalize_hist_image(image):
+    
+    img = cv2.cvtColor(image, cv2.COLOR_BGR2YCR_CB)
+    img[:,:,0] = cv2.equalizeHist(img[:,:,0])
+    img = cv2.cvtColor(img, cv2.COLOR_YCR_CB2BGR)
+    return img
+    
+
 def detect_Frame(detect_model, frame, dict_id_image, count_dict, resnet, link_output_folder, link_detected_frame_folder,
                  camera, count_video_frame,
                  conf_threshold=0.5):
