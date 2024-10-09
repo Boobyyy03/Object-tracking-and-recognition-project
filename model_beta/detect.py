@@ -69,6 +69,13 @@ def equalize_hist_image(image):
 def detect_Frame(detect_model, frame, dict_id_image, count_dict, resnet, link_output_folder, link_detected_frame_folder,
                  camera, count_video_frame,
                  conf_threshold=0.5):
+
+    # Use adjust image
+    #frame = adjust_image_gamma_lookuptable(frame)
+
+    # Use equalize hist
+    #frame = equalize_hist_image(frame)
+
     # Run YOLOv8 tracking on the frame, persisting tracks between frames
     results = detect_model.track(frame, persist=True)
     shape_face_now = [100, 75]
