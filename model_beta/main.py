@@ -594,34 +594,52 @@ class MainWindow(QWidget):
             print(f"No image in result_label_{number + 1}")
 
     def make_Mp4(self):
-        fps = 24
         try:
-            # Lấy hết đường dẫn ảnh trong file
             for i in range(self.number_camera):
                 if i == self.current_camera:
-                    detected_frame_dir = os.path.join(self.detected_frame_dir, str(i))
-                    list_img = list()
-                    for ii in os.listdir(detected_frame_dir):
-                        list_img.append(ii)
-                    list_img.sort()
+                    segment_dir = os.path.join(self.segments_dir, str(i))
+                    segment_files = sorted([f for f in os.listdir(segment_dir) if f.endswith('.mp4')])
 
-                    # Lấy các thông số và tạo chỗ đạt file
-                    cv2_fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                    if not segment_files:
+                        print("Chưa có segment để tạo video")
+                        return
 
-                    img = cv2.imread(os.path.join(detected_frame_dir, os.listdir(detected_frame_dir)[0]))
+                    # Đường dẫn file mp4 đầu ra
+                    output_file = os.path.join("model_beta", "model_beta", "mp4_output", f"{i}.mp4")
 
-                    size = list(img.shape)
-                    del size[2]
-                    size.reverse()
+                    # Đọc và kết hợp các segment thành một video
+                    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                    out = None
 
-                    video = cv2.VideoWriter(os.path.join("model_beta", str(i) + ".mp4"), cv2_fourcc, fps, size)
+                    for segment_file in segment_files:
+                        segment_path = os.path.join(segment_dir, segment_file)
+                        cap = cv2.VideoCapture(segment_path)
 
-                    # Viết vào mp4
-                    for ii in list_img:
-                        video.write(cv2.imread(os.path.join(detected_frame_dir, ii)))
-                    video.release()
-        except:
-            print("Chưa có ảnh để tạo video")
+                        if not cap.isOpened():
+                            print(f"Không thể mở segment: {segment_path}")
+                            continue
+
+                        while cap.isOpened():
+                            ret, frame = cap.read()
+                            if not ret:
+                                break
+
+                            if out is None:
+                                height, width, _ = frame.shape
+                                out = cv2.VideoWriter(output_file, fourcc, 24, (width, height))
+
+                            out.write(frame)
+
+                        cap.release()
+
+                    if out is not None:
+                        out.release()
+                        print(f"Video đã được tạo: {output_file}")
+                    else:
+                        print("Không có frame nào để tạo video")
+
+        except Exception as e:
+            print(f"Lỗi khi tạo video: {e}")
 
 
 def cleanup():
